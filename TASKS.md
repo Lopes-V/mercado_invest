@@ -80,7 +80,7 @@ Esse bloqueio é externo ao código e não deve ser contornado desabilitando SSL
 - [x] 1.2 Configurações
 - [x] 1.3 Logging
 - [x] 1.4 Supabase
-- [ ] 1.5 Telegram
+- [x] 1.5 Telegram
 - [ ] 1.6 /status
 - [ ] 1.7 Testes de integração
 - [ ] 1.8 Testes de falha

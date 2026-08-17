@@ -122,3 +122,47 @@ def test_message_without_text_is_ignored():
     )
 
     assert result is None
+
+def test_authorized_status_returns_operational_message():
+    update = {
+        "message": {
+            "from": {
+                "id": 123,
+            },
+            "chat": {
+                "id": 456,
+            },
+            "text": "/status",
+        }
+    }
+
+    result = handle_update(
+        update,
+        allowed_user_ids={123},
+    )
+
+    assert result == OutgoingMessage(
+        chat_id=456,
+        text="Investment Bot operacional.",
+    )
+
+
+def test_unauthorized_status_is_ignored():
+    update = {
+        "message": {
+            "from": {
+                "id": 999,
+            },
+            "chat": {
+                "id": 456,
+            },
+            "text": "/status",
+        }
+    }
+
+    result = handle_update(
+        update,
+        allowed_user_ids={123},
+    )
+
+    assert result is None

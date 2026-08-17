@@ -1,5 +1,6 @@
-from typing import AbstractSet
 from dataclasses import dataclass
+from typing import AbstractSet
+
 
 @dataclass(frozen=True)
 class OutgoingMessage:
@@ -12,7 +13,6 @@ def extract_command(text: str) -> str | None:
         return None
 
     first_token = text.split(maxsplit=1)[0]
-
     command = first_token.split("@", maxsplit=1)[0]
 
     return command.lower()
@@ -61,6 +61,12 @@ def handle_update(
                 "Investment Bot iniciado. "
                 "Acesso autorizado."
             ),
+        )
+
+    if command == "/status":
+        return OutgoingMessage(
+            chat_id=chat_id,
+            text="Investment Bot operacional.",
         )
 
     return None
