@@ -2,107 +2,103 @@
 
 ## Etapa atual
 
-ETAPA 1 — Fundação
+ETAPA 2 — Supabase
 
 ## Tarefa atual
 
-1.5 — Telegram
-
+2.1 — currencies
+Status: ✅ APROVADA
 ## Status
 
-PARCIAL — aguardando teste end-to-end real
+EM ANDAMENTO
 
-## Objetivo
-
-Concluir a integração básica e segura com Telegram antes de avançar para `/status`.
-
-## Permitido alterar
-
-- app/
-- tests/
-- scripts/
-- pyproject.toml
-- .gitignore
-- .env.example
-- documentação
-
-## Não implementar nesta tarefa
-
-- IA
-- Market Data
-- Carteira
-- Scheduler
-- Alertas de oportunidade
-- Compra automática
-- Etapa 2 — Persistência de domínio
-
-## Estado atual da 1.5
-
-- [x] Configuração do token
-- [x] `TelegramClient`
-- [x] `getMe`
-- [x] `getUpdates`
-- [x] `sendMessage`
-- [x] Parser de comandos
-- [x] `/start`
-- [x] Whitelist de usuários
-- [x] Whitelist vazia usa deny-all
-- [x] IDs inválidos são rejeitados
-- [x] Usuários não autorizados são ignorados
-- [x] Controle de offset
-- [x] Runner de uma execução
-- [x] Cliente HTTP fechado após sucesso
-- [x] Cliente HTTP fechado após falha
-- [x] Falhas são propagadas
-- [x] 45 testes automatizados passando
-- [x] `git diff --check` sem erros
-- [ ] `getMe` validado contra Telegram real
-- [ ] Token inválido rejeitado pela API real
-- [ ] Telegram User ID real identificado
-- [ ] `TELEGRAM_ALLOWED_USER_IDS` configurado com ID real
-- [ ] `/start` validado end-to-end
-
-## Bloqueio atual
-
-A rede atual bloqueia a conexão TLS com:
-
-`api.telegram.org`
-
-Resultado atual:
-
-`Telegram connection: FAILED [ConnectError]`
-
-Esse bloqueio é externo ao código e não deve ser contornado desabilitando SSL/TLS.
-
-## Etapas
+## Etapa 1 concluída
 
 - [x] 1.1 Bootstrap Python
 - [x] 1.2 Configurações
 - [x] 1.3 Logging
 - [x] 1.4 Supabase
 - [x] 1.5 Telegram
-- [ ] 1.6 /status
-- [ ] 1.7 Testes de integração
-- [ ] 1.8 Testes de falha
+- [x] 1.6 /status
+- [x] 1.7 Testes de integração
+- [x] 1.8 Testes de falha
 
 ## Gate da Etapa 1
 
+Status: ✅ APROVADA
+
+### Validações registradas
+
+- [x] Python >= 3.12
+- [x] aplicação executável
+- [x] pytest funcionando
+- [x] 57 testes passando
+- [x] Supabase conectado
+- [x] Telegram validado end-to-end
+- [x] whitelist funcionando
+- [x] /start funcionando
+- [x] /status funcionando
+- [x] polling controlado por offset
+- [x] testes de integração
+- [x] testes de falha
+- [x] .env ignorado
+- [x] nenhuma secret versionada
+
+## Etapa 2 — Supabase
+
+### Objetivo
+
+Construir a persistência do domínio financeiro no PostgreSQL/Supabase de forma incremental, auditável e preparada para múltiplos mercados.
+
+### Tarefa atual
+
+2.1 — currencies
+
+### Objetivo da 2.1
+
+Criar a primeira entidade estrutural do domínio: moedas.
+
+### Permitido alterar
+
+- supabase/
+- tests/
+- docs/
+- TASKS.md
+- arquivos mínimos necessários à tarefa
+
+### Não implementar
+
+- markets
+- exchanges
+- assets
+- asset_provider_symbols
+- market_quotes
+- market_candles
+- fx_rates
+- carteira
+- análises
+- IA
+- scheduler
+- alertas
+- repositories Python para entidades futuras
+
+### Critérios de conclusão da 2.1
+
+- [ ] migration criada
+- [ ] tabela currencies definida
+- [ ] UUID usado como identificador
+- [ ] código da moeda único
+- [ ] código validado
+- [ ] precisão decimal validada
+- [ ] timestamps com timezone
+- [ ] nenhum BRL/USD hardcoded como comportamento do sistema
+- [ ] migration revisável
+- [ ] testes aplicáveis passando
+- [ ] suíte anterior continua passando
+- [ ] git diff --check limpo
+- [ ] nenhuma secret adicionada
+- [ ] documentação atualizada
+
+## Gate 2.1
+
 Status: ❌ NÃO APROVADA
-
-Motivo:
-A tarefa 1.5 ainda depende da validação end-to-end com a API real do Telegram.
-
-## Próximo passo
-
-Quando houver acesso a uma rede que permita Telegram:
-
-1. Executar `python -m scripts.check_telegram`
-2. Confirmar autenticação do bot
-3. Testar token inválido
-4. Enviar `/start` ao bot
-5. Obter o Telegram User ID real
-6. Configurar `TELEGRAM_ALLOWED_USER_IDS`
-7. Executar o fluxo real do bot
-8. Validar resposta ao `/start`
-9. Aprovar 1.5
-10. Iniciar 1.6 — `/status`

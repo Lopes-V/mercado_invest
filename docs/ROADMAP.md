@@ -10,10 +10,11 @@ Status: ✅
 
 ## Etapa 1
 Fundação
-Status: EM ANDAMENTO
+Status: ✅
 
 ## Etapa 2
 Supabase
+Status: EM ANDAMENTO
 
 ## Etapa 3
 Market Data

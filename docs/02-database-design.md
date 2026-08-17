@@ -19,7 +19,9 @@ Mercados suportados.
 Bolsas.
 
 ### currencies
-Moedas.
+Moedas que servem como referência monetária do domínio, sem restringir a arquitetura a um país ou mercado. Cada registro possui `id` UUID, `code` alfanumérico em maiúsculas e único, `name` não vazio, `symbol` opcional, `decimal_places`, `is_active` e timestamps com timezone (`created_at` e `updated_at`).
+
+Não há seeds de moeda nesta etapa: a tabela representa somente o schema e permanece preparada para múltiplas moedas. RLS e suas policies serão implementadas em tarefa posterior; a ausência delas nesta migration é intencional. A service role continua restrita ao backend.
 
 ### assets
 Ativos.
