@@ -6,8 +6,8 @@ ETAPA 2 — Supabase
 
 ## Tarefa atual
 
-2.1 — currencies
-Status: ✅ APROVADA
+2.2 — markets
+
 ## Status
 
 EM ANDAMENTO
@@ -50,55 +50,46 @@ Status: ✅ APROVADA
 
 Construir a persistência do domínio financeiro no PostgreSQL/Supabase de forma incremental, auditável e preparada para múltiplos mercados.
 
-### Tarefa atual
+### Tarefas
 
-2.1 — currencies
-
-### Objetivo da 2.1
-
-Criar a primeira entidade estrutural do domínio: moedas.
-
-### Permitido alterar
-
-- supabase/
-- tests/
-- docs/
-- TASKS.md
-- arquivos mínimos necessários à tarefa
-
-### Não implementar
-
-- markets
-- exchanges
-- assets
-- asset_provider_symbols
-- market_quotes
-- market_candles
-- fx_rates
-- carteira
-- análises
-- IA
-- scheduler
-- alertas
-- repositories Python para entidades futuras
-
-### Critérios de conclusão da 2.1
-
-- [ ] migration criada
-- [ ] tabela currencies definida
-- [ ] UUID usado como identificador
-- [ ] código da moeda único
-- [ ] código validado
-- [ ] precisão decimal validada
-- [ ] timestamps com timezone
-- [ ] nenhum BRL/USD hardcoded como comportamento do sistema
-- [ ] migration revisável
-- [ ] testes aplicáveis passando
-- [ ] suíte anterior continua passando
-- [ ] git diff --check limpo
-- [ ] nenhuma secret adicionada
-- [ ] documentação atualizada
+- [x] 2.1 currencies
+- [ ] 2.2 markets
 
 ## Gate 2.1
 
-Status: ❌ NÃO APROVADA
+Status: ✅ APROVADA
+
+### Tarefa atual
+
+2.2 — markets
+
+### 2.2 — markets
+
+#### Objetivo
+
+Representar mercados/jurisdições financeiras suportados pelo sistema sem acoplamento exclusivo ao Brasil.
+
+#### Critérios de conclusão
+
+- [x] migration criada
+- [x] tabela public.markets criada
+- [x] UUID usado como PK
+- [x] code único e validado
+- [x] name validado
+- [x] country_code opcional e validado
+- [x] default_currency_id referenciando currencies
+- [x] mercado pode existir sem moeda padrão
+- [x] timestamps com timezone
+- [x] is_active
+- [x] nenhuma informação de exchange adicionada
+- [x] nenhum BR/B3/US hardcoded como regra
+- [x] sem seeds
+- [x] testes da migration
+- [x] suíte completa passando
+- [x] git diff --check limpo
+- [x] nenhuma secret adicionada
+- [x] documentação atualizada
+
+## Gate 2.2
+
+Status: ⚠ AGUARDANDO REVISÃO EXTERNA

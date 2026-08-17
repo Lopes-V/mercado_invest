@@ -13,7 +13,11 @@ PostgreSQL através do Supabase.
 ## Mercado
 
 ### markets
-Mercados suportados.
+Representam mercados ou jurisdições financeiras suportadas, preparados para múltiplos países, regiões e mercados não soberanos. Cada registro possui `id` UUID, `code` único em maiúsculas, `name`, `country_code` opcional, `default_currency_id` opcional, `is_active` e timestamps com timezone.
+
+`country_code`, quando informado, segue ISO-3166-1 alpha-2 por contrato; não há tabela ou enum de países nesta etapa para preservar expansão futura. `default_currency_id` referencia `currencies` somente como conveniência e não determina a moeda de todos os ativos do mercado.
+
+`markets` não são `exchanges`: markets representam a jurisdição, enquanto bolsas ou venues específicos pertencem à futura tabela `exchanges`. Não há dados de exchange nem seeds nesta migration. RLS e policies serão tratadas em tarefa posterior; sua ausência agora é intencional, e a service role permanece somente no backend, sem exposição de chave administrativa no frontend.
 
 ### exchanges
 Bolsas.
