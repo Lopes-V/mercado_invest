@@ -6,45 +6,73 @@ ETAPA 1 — Fundação
 
 ## Tarefa atual
 
-1.1 — Bootstrap Python
+1.5 — Telegram
 
 ## Status
 
-EM ANDAMENTO
+PARCIAL — aguardando teste end-to-end real
 
 ## Objetivo
 
-Criar uma aplicação Python mínima, executável e testável.
+Concluir a integração básica e segura com Telegram antes de avançar para `/status`.
 
 ## Permitido alterar
 
 - app/
 - tests/
+- scripts/
 - pyproject.toml
 - .gitignore
 - .env.example
 - documentação
 
-## Não implementar
+## Não implementar nesta tarefa
 
-- Telegram
-- Supabase
 - IA
 - Market Data
 - Carteira
 - Scheduler
-- Alertas
+- Alertas de oportunidade
+- Compra automática
+- Etapa 2 — Persistência de domínio
 
-## Critérios de conclusão
+## Estado atual da 1.5
 
-- [ ] Python 3.12 ou superior
-- [ ] Ambiente virtual funcionando
-- [ ] `python -m app.main` funciona
-- [ ] Pytest instalado
-- [ ] `pytest` passa
-- [ ] `.env` ignorado pelo Git
-- [ ] Estrutura inicial criada
-- [ ] Nenhuma secret no projeto
+- [x] Configuração do token
+- [x] `TelegramClient`
+- [x] `getMe`
+- [x] `getUpdates`
+- [x] `sendMessage`
+- [x] Parser de comandos
+- [x] `/start`
+- [x] Whitelist de usuários
+- [x] Whitelist vazia usa deny-all
+- [x] IDs inválidos são rejeitados
+- [x] Usuários não autorizados são ignorados
+- [x] Controle de offset
+- [x] Runner de uma execução
+- [x] Cliente HTTP fechado após sucesso
+- [x] Cliente HTTP fechado após falha
+- [x] Falhas são propagadas
+- [x] 45 testes automatizados passando
+- [x] `git diff --check` sem erros
+- [ ] `getMe` validado contra Telegram real
+- [ ] Token inválido rejeitado pela API real
+- [ ] Telegram User ID real identificado
+- [ ] `TELEGRAM_ALLOWED_USER_IDS` configurado com ID real
+- [ ] `/start` validado end-to-end
+
+## Bloqueio atual
+
+A rede atual bloqueia a conexão TLS com:
+
+`api.telegram.org`
+
+Resultado atual:
+
+`Telegram connection: FAILED [ConnectError]`
+
+Esse bloqueio é externo ao código e não deve ser contornado desabilitando SSL/TLS.
 
 ## Etapas
 
@@ -60,3 +88,21 @@ Criar uma aplicação Python mínima, executável e testável.
 ## Gate da Etapa 1
 
 Status: ❌ NÃO APROVADA
+
+Motivo:
+A tarefa 1.5 ainda depende da validação end-to-end com a API real do Telegram.
+
+## Próximo passo
+
+Quando houver acesso a uma rede que permita Telegram:
+
+1. Executar `python -m scripts.check_telegram`
+2. Confirmar autenticação do bot
+3. Testar token inválido
+4. Enviar `/start` ao bot
+5. Obter o Telegram User ID real
+6. Configurar `TELEGRAM_ALLOWED_USER_IDS`
+7. Executar o fluxo real do bot
+8. Validar resposta ao `/start`
+9. Aprovar 1.5
+10. Iniciar 1.6 — `/status`
