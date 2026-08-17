@@ -50,6 +50,12 @@ Histórico OHLCV.
 ### fx_rates
 Câmbio.
 
+## Índices e constraints
+
+PRIMARY KEYs e UNIQUE constraints já criam os índices necessários para suas colunas. FKs não criam índice automaticamente no lado referenciador: `exchanges.market_id` já é coberto por `exchanges_market_code_unique`, e `assets.market_id` e a combinação market/exchange são cobertos pelo prefixo de `assets_identity_unique`.
+
+Foram adicionados índices próprios para `markets.default_currency_id` e `assets.currency_id`, que não tinham cobertura iniciada por essas colunas. Índices especulativos foram evitados; novos índices serão avaliados quando repositories e queries reais existirem.
+
 ## Carteira
 
 ### portfolios

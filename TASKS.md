@@ -6,7 +6,7 @@ ETAPA 2 — Supabase
 
 ## Tarefa atual
 
-2.4 — assets
+2.5 — constraints/indexes
 
 ## Status
 
@@ -60,6 +60,7 @@ As migrations de domínio ainda não devem ser aplicadas ao ambiente remoto enqu
 - [x] 2.2 markets
 - [x] 2.3 exchanges
 - [x] 2.4 assets
+- [x] 2.5 constraints/indexes
 
 ## Gate 2.1
 
@@ -182,5 +183,40 @@ Representar instrumentos financeiros de forma canônica, independente de provide
 - [x] documentação atualizada
 
 ## Gate 2.4
+
+Status: ✅ APROVADA
+
+### Tarefa atual
+
+2.5 — constraints/indexes
+
+### 2.5 — constraints/indexes
+
+#### Objetivo
+
+Auditar constraints e índices do domínio financeiro já modelado, eliminando redundâncias e adicionando somente índices necessários para integridade referencial e padrões de acesso já justificáveis.
+
+#### Critérios de conclusão
+
+- [x] PRIMARY KEYs auditadas
+- [x] UNIQUE constraints auditadas
+- [x] foreign keys auditadas
+- [x] cobertura de índices das FKs documentada
+- [x] índices redundantes evitados
+- [x] markets.default_currency_id avaliado
+- [x] assets.currency_id avaliado
+- [x] exchanges.market_id avaliado
+- [x] assets.market_id avaliado
+- [x] assets exchange/market FK avaliada
+- [x] nenhum índice especulativo adicionado
+- [x] nova migration criada se necessária
+- [x] testes adicionados
+- [x] migrations antigas preservadas
+- [x] suíte completa passando
+- [x] git diff --check limpo
+- [x] nenhuma secret adicionada
+- [x] documentação atualizada
+
+## Gate 2.5
 
 Status: ✅ APROVADA
