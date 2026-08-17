@@ -30,3 +30,15 @@ Nunca registrar:
 - Supabase secret
 - API keys
 - credentials
+
+## Secrets
+
+Nunca registrar valores de:
+
+- Telegram Bot Token
+- Supabase keys
+- API keys
+- credenciais
+- tokens de autenticação
+
+Erros devem fornecer contexto sem revelar secrets.

@@ -1,12 +1,15 @@
 from app.config.settings import get_settings
+from app.monitoring.logger import configure_logging
 
 
 def main() -> None:
     settings = get_settings()
 
-    print(
-        f"Investment Bot iniciado "
-        f"[env={settings.environment.value}]"
+    logger = configure_logging(settings)
+
+    logger.info(
+        "Investment Bot iniciado [env=%s]",
+        settings.environment.value,
     )
 
 

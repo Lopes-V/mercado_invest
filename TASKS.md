@@ -48,9 +48,9 @@ Criar uma aplicação Python mínima, executável e testável.
 
 ## Etapas
 
-- [ ] 1.1 Bootstrap Python
-- [ ] 1.2 Configurações
-- [ ] 1.3 Logging
+- [x] 1.1 Bootstrap Python
+- [x] 1.2 Configurações
+- [x] 1.3 Logging
 - [ ] 1.4 Supabase
 - [ ] 1.5 Telegram
 - [ ] 1.6 /status
