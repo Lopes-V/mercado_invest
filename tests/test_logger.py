@@ -17,6 +17,8 @@ def create_settings(
     return Settings(
         environment=Environment.TEST,
         log_level=log_level,
+        supabase_url="https://example.supabase.co",
+        supabase_secret_key="fake-secret",
     )
 
 

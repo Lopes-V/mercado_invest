@@ -3,7 +3,10 @@ name = "investment-bot"
 version = "0.1.0"
 description = "Sistema pessoal automatizado de análise de investimentos"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "supabase",
+    "python-dotenv",
+]
 
 [project.optional-dependencies]
 dev = [
