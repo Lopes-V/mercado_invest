@@ -20,7 +20,11 @@ Representam mercados ou jurisdições financeiras suportadas, preparados para m�
 `markets` não são `exchanges`: markets representam a jurisdição, enquanto bolsas ou venues específicos pertencem à futura tabela `exchanges`. Não há dados de exchange nem seeds nesta migration. RLS e policies serão tratadas em tarefa posterior; sua ausência agora é intencional, e a service role permanece somente no backend, sem exposição de chave administrativa no frontend.
 
 ### exchanges
-Bolsas.
+Representam bolsas, venues e locais específicos de negociação; cada exchange pertence obrigatoriamente a um `market`. Os campos são `id` UUID, `market_id`, `code`, `name`, `mic` opcional, `timezone`, `is_active` e timestamps com timezone.
+
+`code` é único apenas dentro do market. `mic` é opcional e único quando informado. `timezone` é obrigatório e validado somente quanto ao formato compatível com identificadores IANA; a verificação de sua existência real cabe à ingestão ou configuração futura. Exchanges não armazenam moeda default nem trading hours nesta etapa.
+
+`markets` representam jurisdições, `exchanges` representam venues e `assets` serão instrumentos negociados em etapa futura. Não há seeds ou dados de provider nesta migration. RLS e policies serão tratadas posteriormente; sua ausência agora é intencional, e a service role permanece somente no backend.
 
 ### currencies
 Moedas que servem como referência monetária do domínio, sem restringir a arquitetura a um país ou mercado. Cada registro possui `id` UUID, `code` alfanumérico em maiúsculas e único, `name` não vazio, `symbol` opcional, `decimal_places`, `is_active` e timestamps com timezone (`created_at` e `updated_at`).

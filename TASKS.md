@@ -6,7 +6,7 @@ ETAPA 2 — Supabase
 
 ## Tarefa atual
 
-2.2 — markets
+2.3 — exchanges
 
 ## Status
 
@@ -53,7 +53,8 @@ Construir a persistência do domínio financeiro no PostgreSQL/Supabase de forma
 ### Tarefas
 
 - [x] 2.1 currencies
-- [ ] 2.2 markets
+- [x] 2.2 markets
+- [x] 2.3 exchanges
 
 ## Gate 2.1
 
@@ -92,4 +93,44 @@ Representar mercados/jurisdições financeiras suportados pelo sistema sem acopl
 
 ## Gate 2.2
 
-Status: ⚠ AGUARDANDO REVISÃO EXTERNA
+Status: ✅ APROVADA
+
+### Tarefa atual
+
+2.3 — exchanges
+
+### 2.3 — exchanges
+
+#### Objetivo
+
+Representar bolsas, venues e locais de negociação pertencentes a um market, mantendo suporte a múltiplos países, moedas, fusos e providers.
+
+#### Critérios de conclusão
+
+- [x] migration criada
+- [x] tabela public.exchanges criada
+- [x] UUID usado como PK
+- [x] exchange vinculada obrigatoriamente a markets
+- [x] code validado
+- [x] code único dentro de cada market
+- [x] name validado
+- [x] MIC opcional e validado
+- [x] MIC único quando informado
+- [x] timezone obrigatório e validado por contrato
+- [x] sem trading hours nesta tarefa
+- [x] sem assets
+- [x] sem seeds
+- [x] sem B3/NYSE/NASDAQ hardcoded
+- [x] FK sem CASCADE destrutivo
+- [x] timestamps com timezone
+- [x] is_active
+- [x] testes da migration
+- [x] ordem das migrations validada
+- [x] suíte completa passando
+- [x] git diff --check limpo
+- [x] nenhuma secret adicionada
+- [x] documentação atualizada
+
+## Gate 2.3
+
+Status: ✅ APROVADA
