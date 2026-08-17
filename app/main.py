@@ -1,5 +1,13 @@
+from app.config.settings import get_settings
+
+
 def main() -> None:
-    print("Investment Bot iniciado.")
+    settings = get_settings()
+
+    print(
+        f"Investment Bot iniciado "
+        f"[env={settings.environment.value}]"
+    )
 
 
 if __name__ == "__main__":
