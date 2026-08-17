@@ -19,6 +19,8 @@ def create_settings(
         log_level=log_level,
         supabase_url="https://example.supabase.co",
         supabase_secret_key="fake-secret",
+        telegram_bot_token="fake-telegram-token",
+        telegram_allowed_user_ids=frozenset(),
     )
 
 

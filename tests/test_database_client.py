@@ -10,12 +10,13 @@ def test_create_supabase_client_uses_settings(
     monkeypatch,
 ):
     settings = Settings(
-        environment=Environment.TEST,
-        log_level=LogLevel.INFO,
-        supabase_url="https://example.supabase.co",
-        supabase_secret_key="fake-secret",
+    environment=Environment.TEST,
+    log_level=LogLevel.INFO,
+    supabase_url="https://example.supabase.co",
+    supabase_secret_key="fake-secret",
+    telegram_bot_token="fake-telegram-token",
+    telegram_allowed_user_ids=frozenset(),
     )
-
     fake_client = object()
 
     def fake_create_client(url, key):
