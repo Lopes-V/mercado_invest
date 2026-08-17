@@ -6,7 +6,7 @@ ETAPA 2 — Supabase
 
 ## Tarefa atual
 
-2.3 — exchanges
+2.4 — assets
 
 ## Status
 
@@ -50,11 +50,16 @@ Status: ✅ APROVADA
 
 Construir a persistência do domínio financeiro no PostgreSQL/Supabase de forma incremental, auditável e preparada para múltiplos mercados.
 
+### Segurança pendente
+
+As migrations de domínio ainda não devem ser aplicadas ao ambiente remoto enquanto a tarefa de RLS da Etapa 2 não estiver concluída. As tabelas ficam em `public` e RLS será obrigatória antes do deploy.
+
 ### Tarefas
 
 - [x] 2.1 currencies
 - [x] 2.2 markets
 - [x] 2.3 exchanges
+- [x] 2.4 assets
 
 ## Gate 2.1
 
@@ -132,5 +137,50 @@ Representar bolsas, venues e locais de negociação pertencentes a um market, ma
 - [x] documentação atualizada
 
 ## Gate 2.3
+
+Status: ✅ APROVADA
+
+### Tarefa atual
+
+2.4 — assets
+
+### 2.4 — assets
+
+#### Objetivo
+
+Representar instrumentos financeiros de forma canônica, independente de provider e preparada para múltiplos mercados, exchanges e moedas.
+
+#### Critérios de conclusão
+
+- [x] migration criada
+- [x] tabela public.assets criada
+- [x] UUID como PK
+- [x] market_id obrigatório
+- [x] exchange_id opcional
+- [x] currency_id obrigatório
+- [x] symbol obrigatório e validado
+- [x] name obrigatório e validado
+- [x] asset_type obrigatório e extensível
+- [x] ISIN opcional e validado
+- [x] ISIN único quando informado
+- [x] identidade canônica protegida contra duplicação
+- [x] exchange, quando informada, pertence ao mesmo market do asset
+- [x] FKs sem CASCADE destrutivo
+- [x] is_active
+- [x] timestamps timestamptz
+- [x] sem provider symbols
+- [x] sem cotações
+- [x] sem candles
+- [x] sem portfolio
+- [x] sem seeds
+- [x] sem B3/NYSE/NASDAQ/BRL/USD hardcoded
+- [x] ordem das migrations validada
+- [x] testes adicionados
+- [x] suíte completa passando
+- [x] git diff --check limpo
+- [x] nenhuma secret adicionada
+- [x] documentação atualizada
+
+## Gate 2.4
 
 Status: ✅ APROVADA

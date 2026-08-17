@@ -32,7 +32,11 @@ Moedas que servem como referência monetária do domínio, sem restringir a arqu
 Não há seeds de moeda nesta etapa: a tabela representa somente o schema e permanece preparada para múltiplas moedas. RLS e suas policies serão implementadas em tarefa posterior; a ausência delas nesta migration é intencional. A service role continua restrita ao backend.
 
 ### assets
-Ativos.
+Representam instrumentos financeiros canônicos, independentes de providers, posições ou cotações. Cada asset possui `id` UUID, `market_id` obrigatório, `exchange_id` opcional, `currency_id` obrigatório, `symbol`, `name`, `asset_type`, `isin` opcional, `is_active` e timestamps com timezone.
+
+O market é obrigatório; quando há exchange, ela deve pertencer ao mesmo market do asset. A moeda é referenciada por `currency_id`, sem duplicar seus atributos. `symbol` é canônico e provider-independent, enquanto `asset_type` usa validação de formato extensível, sem enum fechado. `isin` é opcional e único quando informado. A identidade formada por market, exchange (inclusive `NULL`), symbol e currency impede duplicatas lógicas.
+
+Assets não são `market_quotes`, posições de carteira ou provider symbols; preços, candles, carteira e mapeamentos de providers permanecem fora desta tabela. Não há seeds. RLS e policies serão implementadas posteriormente; sua ausência é intencional, e a service role permanece somente no backend.
 
 ### asset_provider_symbols
 Mapeamento entre ativo interno e ticker utilizado pelos providers.
