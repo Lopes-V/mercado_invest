@@ -14,7 +14,7 @@ Status: ✅
 
 ## Etapa 2
 Supabase
-Status: EM ANDAMENTO
+Status: ✅
 
 ## Etapa 3
 Market Data

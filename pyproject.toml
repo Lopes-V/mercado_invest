@@ -16,3 +16,6 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "integration: requer um ambiente Supabase remoto explicitamente habilitado",
+]
