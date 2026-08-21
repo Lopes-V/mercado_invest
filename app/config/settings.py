@@ -33,8 +33,8 @@ class Settings:
     telegram_bot_token: str = field(repr=False)
     telegram_allowed_user_ids: frozenset[int]
     brapi_token: str | None = None
-    openai_api_key: str | None = field(default=None, repr=False)
-    openai_model: str | None = None
+    gemini_api_key: str | None = field(default=None, repr=False)
+    gemini_model: str | None = None
     twelve_data_api_key: str | None = field(default=None, repr=False)
     market_quotes_enabled: bool = False
     market_quotes_interval_seconds: int = 300
@@ -171,8 +171,8 @@ def get_settings() -> Settings:
             telegram_allowed_user_ids
         ),
         brapi_token=get_optional_env("BRAPI_TOKEN"),
-        openai_api_key=get_optional_env("OPENAI_API_KEY"),
-        openai_model=get_optional_env("OPENAI_MODEL"),
+        gemini_api_key=get_optional_env("GEMINI_API_KEY"),
+        gemini_model=get_optional_env("GEMINI_MODEL"),
         twelve_data_api_key=get_optional_env("TWELVE_DATA_API_KEY"),
         market_quotes_enabled=_optional_bool("MARKET_QUOTES_ENABLED", False),
         market_quotes_interval_seconds=_positive_int("MARKET_QUOTES_INTERVAL_SECONDS", 300),

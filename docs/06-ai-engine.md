@@ -52,4 +52,4 @@ Registrar:
 
 ## Provider
 
-O adaptador OpenAI usa a Responses API em backend, `Authorization: Bearer` e Structured Outputs com JSON Schema estrito. A chave é opcional para inicialização geral e jamais fica em URL, log, persistência ou frontend. A resposta passa por validação de domínio novamente; não persiste chain-of-thought.
+O adaptador Google Gemini usa `POST /v1beta/models/{model}:generateContent` no backend, com `x-goog-api-key` e Structured Outputs via `generationConfig.responseMimeType`/`responseJsonSchema`. `GEMINI_API_KEY` e `GEMINI_MODEL` são opcionais para inicialização geral, mas obrigatórios ao instanciar o provider real. A chave jamais fica em URL, log, persistência ou frontend. A resposta passa por validação de domínio novamente; não persiste chain-of-thought.

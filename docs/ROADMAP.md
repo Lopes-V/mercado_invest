@@ -34,7 +34,7 @@ Status: ✅
 
 ## Etapa 7
 IA
-Status: ✅ IMPLEMENTADA — OpenAI live pendente exclusivamente por `OPENAI_API_KEY` ausente
+Status: ✅ IMPLEMENTADA — Gemini live pendente por `GEMINI_API_KEY` e/ou `GEMINI_MODEL` ausentes
 
 ## Etapa 8
 Opportunity Engine
@@ -67,8 +67,8 @@ Status: ✅
 
 ## Etapa 15
 Estados Unidos
-Status: ✅ IMPLEMENTADA — Twelve Data live pendente exclusivamente por `TWELVE_DATA_API_KEY` ausente
+Status: ✅ APROVADA
 
 ## Etapa 16
 Outros mercados
-Status: ✅ IMPLEMENTADA — Global live pendente pela configuração externa do Twelve Data
+Status: ✅ IMPLEMENTADA — Global live limitado pelo plano/acesso externo da Twelve Data

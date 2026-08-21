@@ -39,4 +39,4 @@ nenhuma recomendação deve ser emitida.
 `job_runs` segue o mesmo modelo de RLS deny-by-default, sem policies e com CRUD mínimo para service_role; a validação remota confirmou a ausência de privilégios adicionais. O runner não persiste headers, tokens, `.env` ou traceback; mensagens operacionais redigem tokens Bearer e atribuições usuais de secret.
 # Hardening posterior à Etapa 4
 
-As novas tabelas locais usam RLS deny-by-default, nenhuma policy e grants CRUD mínimos para `service_role`. Recovery de job stale encerra o registro como `FAILED` com código operacional e nunca o reexecuta. `Settings` omite credenciais no `repr`; `OPENAI_API_KEY` e `TWELVE_DATA_API_KEY` são backend-only.
+As novas tabelas locais usam RLS deny-by-default, nenhuma policy e grants CRUD mínimos para `service_role`. Recovery de job stale encerra o registro como `FAILED` com código operacional e nunca o reexecuta. `Settings` omite credenciais no `repr`; `GEMINI_API_KEY` e `TWELVE_DATA_API_KEY` são backend-only. Gemini recebe a chave somente no header `x-goog-api-key`, nunca em URL, logs ou persistência.

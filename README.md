@@ -38,4 +38,4 @@ Consulte a documentação de cada etapa e os testes correspondentes.
 Nunca versionar `.env` ou tokens.
 # Estado de implementação
 
-As etapas 0–14 aplicáveis foram validadas externamente. As etapas 7, 9, 15 e 16 estão implementadas e aguardam somente lives que exigem credenciais ou configuração externa. As bases das etapas 5–16 usam Decimal, timestamps explícitos e RLS deny-by-default; suas migrations foram aplicadas e validadas remotamente, incluindo a migration de índices de consulta.
+As etapas 0–15 aplicáveis foram validadas externamente. A IA usa Google Gemini como adapter opcional de backend; sua live depende de `GEMINI_API_KEY` e `GEMINI_MODEL`. As etapas 9 e 16 aguardam somente lives externas; a live global da etapa 16 depende da disponibilidade de equity não-US/não-BR no plano Twelve Data. As bases das etapas 5–16 usam Decimal, timestamps explícitos e RLS deny-by-default; suas migrations foram aplicadas e validadas remotamente, incluindo a migration de índices de consulta.

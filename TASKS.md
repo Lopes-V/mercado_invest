@@ -576,12 +576,12 @@ Status: ✅ APROVADA
 Status: ✅ APROVADA
 
 ### Etapa 7 — AI Engine
-- [x] contexto validado, schema de resposta e adaptador Responses API estruturado
+- [x] contexto validado, schema de resposta e adaptador Gemini estruturado
 - [x] migration local ai_runs e sanitização compartilhada
-- [ ] integração OpenAI live (requer OPENAI_API_KEY)
+- [ ] integração Gemini live (requer GEMINI_API_KEY e GEMINI_MODEL)
 ## Gate 7
 Status: ✅ IMPLEMENTADA
-OpenAI live: ⚠ PENDENTE — `OPENAI_API_KEY` ausente
+Gemini live: ⚠ PENDENTE — `GEMINI_API_KEY` e/ou `GEMINI_MODEL` ausentes
 
 ### Etapa 8 — Opportunity Engine
 - [x] policy e score Decimal com categorias de evidência
@@ -630,17 +630,17 @@ Status: ✅ APROVADA
 
 ### Etapa 15 — US Market
 - [x] Twelve Data, FX schema e valuation FX somente com rate VALID
-- [ ] integração Twelve Data live
+- [x] quote, history e symbol search Twelve Data live reais
 ## Gate 15
-Status: ✅ IMPLEMENTADA
-Twelve Data live: ⚠ PENDENTE — `TWELVE_DATA_API_KEY` ausente
+Status: ✅ APROVADA
 
 ### Etapa 16 — Other Markets
 - [x] core preserva currency/exchange/provider externos sem regras BR/US
-- [ ] integração global opt-in
+- [x] discovery global real via Twelve Data
+- [ ] quote/history global live (limitados pelo plano/símbolos disponíveis)
 ## Gate 16
 Status: ✅ IMPLEMENTADA
-Global live: ⚠ PENDENTE — depende de `TWELVE_DATA_API_KEY` e configuração global
+Global live: ⚠ PENDENTE — plano/acesso Twelve Data não disponibilizou equity global elegível
 
 ## Gate técnico geral
 Status: ⚠ AGUARDANDO REVISÃO EXTERNA
