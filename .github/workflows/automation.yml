@@ -1,0 +1,65 @@
+name: investment-automation
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: investment-automation
+  cancel-in-progress: false
+
+jobs:
+  run-pipeline:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.AUTOMATION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: production
+      LOG_LEVEL: INFO
+
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_ALLOWED_USER_IDS: ${{ secrets.TELEGRAM_ALLOWED_USER_IDS }}
+
+      BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
+      TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+
+      MARKET_QUOTES_ENABLED: 'true'
+      MARKET_QUOTES_INTERVAL_SECONDS: '1800'
+      MARKET_HISTORY_ENABLED: 'true'
+      MARKET_HISTORY_INTERVAL_SECONDS: '86400'
+      MARKET_HISTORY_LOOKBACK_DAYS: '30'
+      MARKET_HISTORY_CANDLE_INTERVAL: '1d'
+
+      AUTOMATED_PIPELINE_ENABLED: 'true'
+      AUTOMATED_PIPELINE_INTERVAL_SECONDS: '1800'
+      AUTOMATED_PIPELINE_PROVIDERS: ${{ vars.AUTOMATED_PIPELINE_PROVIDERS || 'brapi,twelve_data' }}
+      AUTOMATED_PIPELINE_CANDLE_INTERVAL: '1d'
+      AUTOMATED_PIPELINE_LOOKBACK_DAYS: '30'
+      AUTOMATED_PIPELINE_ANALYSIS_PERIOD: '14'
+      AUTOMATED_PIPELINE_REFERENCE_MAX_AGE_SECONDS: '345600'
+      AUTOMATED_PIPELINE_PROMPT_VERSION: 'gemini-v1'
+
+      OPPORTUNITY_POLICY_VERSION: ${{ vars.OPPORTUNITY_POLICY_VERSION }}
+      OPPORTUNITY_MINIMUM_CATEGORIES: ${{ vars.OPPORTUNITY_MINIMUM_CATEGORIES || '2' }}
+      OPPORTUNITY_MAX_AI_WEIGHT: ${{ vars.OPPORTUNITY_MAX_AI_WEIGHT || '20' }}
+      OPPORTUNITY_RULES_JSON: ${{ vars.OPPORTUNITY_RULES_JSON }}
+
+      ALERT_COOLDOWN_SECONDS: ${{ vars.ALERT_COOLDOWN_SECONDS || '86400' }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.lock.txt
+      - run: python -m app.run_once

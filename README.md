@@ -5,37 +5,41 @@ Sistema pessoal de análise de investimentos com coleta automática de mercado,
 carteira, IA, alertas e bot no Telegram.
 
 ## Status atual
-Etapas 0–16 implementadas; validações live dependentes de credenciais externas permanecem explicitamente pendentes.
+Etapas 0–15 aplicáveis implementadas e validadas; Gemini, Twelve Data EUA e Telegram possuem validação live. A etapa global permanece limitada pelo acesso do plano Twelve Data para equity não-US/não-BR.
 
 ## Principais tecnologias
-- Python
+- Python 3.12
 - Supabase / PostgreSQL
-- Telegram Bot
-- IA/LLM
-- Docker futuramente
+- Telegram Bot API
+- Google Gemini
+- BRAPI
+- Twelve Data
+- GitHub Actions
+- Docker
 
-## Funcionalidades planejadas
-- Monitoramento automático
-- Carteira
-- Análise de ativos
-- Opportunity Score
-- Alertas
-- Logs
-- Backtesting
-- Paper Trading
+## Pipeline
+
+Market Data -> Quality -> Analysis -> Gemini -> Opportunity -> Alert -> Telegram
+
+A IA não define score financeiro, não inventa dados ausentes e não executa compra/venda. Dados não `VALID` bloqueiam o pipeline antes da IA.
+
+## Automação
+
+O repositório suporta:
+
+- `python -m app.worker` para execução persistente;
+- `python -m app.run_once` para execução agendada curta;
+- `.github/workflows/automation.yml` para automação gratuita via GitHub Actions a cada 30 minutos.
+
+A automação só é ativada com `AUTOMATED_PIPELINE_ENABLED=true`. Regras financeiras não são hardcoded: `OPPORTUNITY_RULES_JSON` e `OPPORTUNITY_POLICY_VERSION` são obrigatórios quando o pipeline automático está ativo.
 
 ## Mercados
-V1: Brasil
-Futuro: Estados Unidos e outros mercados
+- Brasil: BRAPI
+- Estados Unidos: Twelve Data
+- Global: adapter implementado; cobertura live depende do plano/acesso do provider
 
 ## Estrutura
 Veja `docs/01-architecture.md`.
 
-## Como executar
-Consulte a documentação de cada etapa e os testes correspondentes.
-
 ## Segurança
-Nunca versionar `.env` ou tokens.
-# Estado de implementação
-
-As etapas 0–15 aplicáveis foram validadas externamente. A IA usa Google Gemini como adapter opcional de backend; sua live depende de `GEMINI_API_KEY` e `GEMINI_MODEL`. As etapas 9 e 16 aguardam somente lives externas; a live global da etapa 16 depende da disponibilidade de equity não-US/não-BR no plano Twelve Data. As bases das etapas 5–16 usam Decimal, timestamps explícitos e RLS deny-by-default; suas migrations foram aplicadas e validadas remotamente, incluindo a migration de índices de consulta.
+Nunca versionar `.env`, tokens ou secret keys. Em GitHub Actions, credenciais ficam em Repository Secrets e policies não secretas em Repository Variables.
