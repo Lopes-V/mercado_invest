@@ -37,6 +37,22 @@ Para status, `MarketStatusRequest` exige ao menos um identificador interno (`mar
 
 A tarefa 3.2 transformará `None` em um `DataQuality`. Antes de persistência, análise, IA ou alertas, os dados deverão possuir qualidade avaliada. A tarefa 3.1 não classifica dados nem assume `VALID`.
 
+## Quality Engine
+
+`QualityEngine` é determinístico, independente de provider e recebe uma `QualityPolicy` explícita. Cada avaliação recebe `evaluated_at` timezone-aware; o engine não consulta relógio, banco, API ou qualquer referência externa. Ele sempre recalcula a qualidade, sem confiar no valor anterior do dado, e retorna uma nova instância normalizada com `QualityAssessment` e todos os `QualityIssue` encontrados.
+
+A policy configura as idades máximas de quotes, candles e status, a tolerância para timestamps futuros, a completude opcional de candles e o limite opcional de desvio relativo. A precedência determinística é `INVALID > INCOMPLETE > OUTLIER > STALE > VALID`; issues secundários nunca são descartados.
+
+`INVALID` cobre incoerências temporais objetivas: `timestamp` ou `received_at` além da tolerância futura, ou `timestamp` excessivamente posterior a `received_at`. `STALE` usa exclusivamente o timestamp financeiro: `age == max_age` ainda é válido, enquanto `age > max_age` é stale. `received_at` permanece informação de auditoria e não rejuvenesce o dado.
+
+`OUTLIER` só é avaliado com `reference_price` explícito e `Decimal` positivo e finito. O engine não busca nem inventa referência; sem referência, o check não é executado. Outlier é uma classificação de qualidade, jamais recomendação, alerta ou decisão de compra/venda.
+
+`max_relative_price_deviation` é uma razão decimal: `Decimal("0.10")` representa 10%; `Decimal("10")` não representa 10%.
+
+`Candle.timestamp` deve ter semântica consistente definida pelos adapters futuros. Cada adapter deverá normalizar o timestamp recebido do provider para o contrato do core antes da avaliação de qualidade.
+
+`VALID` significa somente que nenhuma regra habilitada encontrou problema. Não prova que o preço é verdadeiro, não garante resultado financeiro e não constitui recomendação.
+
 ## Regra
 
 Dados `INVALID` nunca podem chegar à IA. Payloads de providers passam primeiro pelo adapter, modelos normalizados, qualidade e persistência; nunca entram diretamente na IA.

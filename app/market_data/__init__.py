@@ -7,9 +7,11 @@ from app.market_data.contracts import (
 )
 from app.market_data.errors import (
     MarketDataError,
+    MarketDataQualityError,
     MarketDataValidationError,
     ProviderCapabilityError,
     ProviderError,
+    QualityPolicyError,
 )
 from app.market_data.models import (
     Candle,
@@ -20,6 +22,13 @@ from app.market_data.models import (
     ProviderAsset,
     Quote,
 )
+from app.market_data.quality import (
+    QualityAssessment,
+    QualityEngine,
+    QualityIssue,
+    QualityIssueCode,
+    QualityPolicy,
+)
 
 
 __all__ = [
@@ -29,6 +38,7 @@ __all__ = [
     "DataQuality",
     "HistoryRequest",
     "MarketDataError",
+    "MarketDataQualityError",
     "MarketDataProvider",
     "MarketDataValidationError",
     "MarketSessionStatus",
@@ -37,6 +47,12 @@ __all__ = [
     "ProviderAsset",
     "ProviderCapabilityError",
     "ProviderError",
+    "QualityAssessment",
+    "QualityEngine",
+    "QualityIssue",
+    "QualityIssueCode",
+    "QualityPolicy",
+    "QualityPolicyError",
     "Quote",
     "QuoteRequest",
 ]

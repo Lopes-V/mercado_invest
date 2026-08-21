@@ -6,7 +6,7 @@ ETAPA 3 — Market Data
 
 ## Tarefa atual
 
-3.1 — contratos e modelos normalizados
+3.2 — quality/validation engine
 
 ## Status
 
@@ -379,8 +379,8 @@ Construir uma camada de dados de mercado independente de provider, capaz de cons
 
 ### Tarefas
 
-- [ ] 3.1 contratos e modelos normalizados
-- [ ] 3.2 quality/validation engine
+- [x] 3.1 contratos e modelos normalizados
+- [x] 3.2 quality/validation engine
 - [ ] 3.3 infraestrutura HTTP de providers
 - [ ] 3.4 primeiro provider brasileiro
 - [ ] 3.5 persistência de Market Data
@@ -413,13 +413,61 @@ Construir uma camada de dados de mercado independente de provider, capaz de cons
 
 ### Revisão externa 3.1
 
-Blockers encontrados:
+Revisão externa confirmou:
 
-- qualidade estava sendo exigida antes do Quality Engine;
-- MarketStatusRequest possuía somente UUID interno, insuficiente para routing do provider.
-
-Depois da correção:
+- `quality=None` representa qualidade ainda não avaliada;
+- nenhum estado artificial foi adicionado a `DataQuality`;
+- provider adapter não define qualidade automaticamente;
+- UUID interno e identificador externo permanecem separados;
+- `MarketStatusRequest` possui routing externo suficiente.
 
 ## Gate 3.1
 
-Status: ⚠ AGUARDANDO NOVA REVISÃO EXTERNA
+Status: ✅ APROVADA
+
+### 3.2 — quality/validation engine
+
+#### Critérios de conclusão
+
+- [x] QualityPolicy
+- [x] policy validada
+- [x] QualityIssue
+- [x] QualityAssessment
+- [x] QualityEngine
+- [x] evaluated_at explícito
+- [x] sem relógio oculto
+- [x] staleness quote
+- [x] staleness candle
+- [x] staleness MarketStatus
+- [x] timestamp futuro inválido
+- [x] received_at futuro inválido
+- [x] candle completeness configurável
+- [x] UNKNOWN status configurável
+- [x] outlier com referência explícita
+- [x] Decimal em cálculos
+- [x] precedência determinística
+- [x] múltiplos issues preservados
+- [x] quality anterior não confiada
+- [x] input original imutável
+- [x] sem decisão financeira
+- [x] testes unitários
+- [x] documentação
+- [x] suíte completa passando
+- [x] git diff --check limpo
+
+## Gate 3.2
+
+Status: ✅ APROVADA
+
+Revisão externa confirmou:
+
+- `evaluated_at` explícito;
+- ausência de relógio oculto;
+- recomputação independente da quality anterior;
+- input original imutável;
+- issues múltiplos preservados;
+- precedência determinística;
+- `STALE` baseado no timestamp financeiro;
+- `OUTLIER` depende de referência explícita;
+- `Decimal` usado em cálculos;
+- nenhuma decisão financeira implementada.
