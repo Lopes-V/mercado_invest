@@ -14,9 +14,9 @@ from app.backtesting.calibration import (
 from app.calibrate_opportunity import (
     CalibrationHistoryError,
     format_history_failure,
-    has_usable_chronological_partitions,
     history_window_candidates,
     load_brapi_history_with_fallback,
+    partition_report,
 )
 from app.market_data.errors import ProviderHttpError
 from app.market_data.models import Candle, CandleInterval, DataQuality
@@ -78,6 +78,7 @@ def test_holdout_allows_rules_only_when_unseen_test_also_passes():
 
     rejected = calibrate_partitions(partition(test_positive=False), config=config)
     assert rejected.selected is not None
+    assert rejected.selected.rules == accepted.selected.rules
     assert not rejected.release_ready
     assert rejected.rules_json() is None
 
@@ -148,12 +149,17 @@ def test_historical_replay_rejects_zero_price():
         raise AssertionError("zero price deveria ser rejeitado")
 
 
-def _candles(asset_id, *, count: int) -> tuple[Candle, ...]:
+def _candles(
+    asset_id,
+    *,
+    count: int,
+    start: datetime = NOW,
+) -> tuple[Candle, ...]:
     return tuple(
         Candle(
             asset_id=asset_id,
             provider_symbol="TEST3",
-            timestamp=NOW + timedelta(days=index),
+            timestamp=start + timedelta(days=index),
             open=Decimal("100") + Decimal(index),
             high=Decimal("101") + Decimal(index),
             low=Decimal("99") + Decimal(index),
@@ -291,20 +297,77 @@ def test_empty_history_is_rejected_instead_of_becoming_a_fake_sample():
         )
 
 
-def test_short_history_is_rejected_when_it_cannot_form_all_chronological_partitions():
-    asset_id = uuid4()
+def test_global_partitions_prevent_cross_asset_temporal_overlap():
+    long_asset_id = uuid4()
+    short_asset_id = uuid4()
     config = CalibrationConfig(
         analysis_lookback_days=30,
         analysis_period=14,
         forward_horizon=5,
         min_signals=8,
     )
-
-    assert not has_usable_chronological_partitions(
-        asset_id,
-        _candles(asset_id, count=20),
+    parts = build_observation_partitions(
+        {
+            long_asset_id: _candles(long_asset_id, count=200),
+            short_asset_id: _candles(
+                short_asset_id,
+                count=50,
+                start=NOW + timedelta(days=150),
+            ),
+        },
         config=config,
     )
+
+    assert parts.global_train_end is not None
+    assert parts.global_validation_end is not None
+    assert parts.train and parts.validation and parts.test
+    assert all(
+        item.signal_at <= parts.global_train_end
+        and item.outcome_at <= parts.global_train_end
+        for item in parts.train
+    )
+    assert all(
+        parts.global_train_end < item.signal_at <= parts.global_validation_end
+        and item.outcome_at <= parts.global_validation_end
+        for item in parts.validation
+    )
+    assert all(item.signal_at > parts.global_validation_end for item in parts.test)
+    assert max(item.outcome_at for item in parts.train) < min(
+        item.signal_at for item in parts.validation
+    )
+    assert max(item.outcome_at for item in parts.validation) < min(
+        item.signal_at for item in parts.test
+    )
+
+    assert short_asset_id not in {item.asset_id for item in parts.train}
+    assert short_asset_id not in {item.asset_id for item in parts.validation}
+    assert short_asset_id in {item.asset_id for item in parts.test}
+
+
+def test_partition_report_exposes_global_boundaries_and_asset_contributions():
+    long_asset_id = uuid4()
+    short_asset_id = uuid4()
+    parts = build_observation_partitions(
+        {
+            long_asset_id: _candles(long_asset_id, count=200),
+            short_asset_id: _candles(
+                short_asset_id,
+                count=50,
+                start=NOW + timedelta(days=150),
+            ),
+        },
+        config=CalibrationConfig(min_signals=8),
+    )
+
+    report = partition_report(
+        parts,
+        symbols_by_asset={long_asset_id: "LONG3", short_asset_id: "SHORT3"},
+    )
+
+    assert report["global_train_end"] is not None
+    assert report["global_validation_end"] is not None
+    assert report["train"]["contributing_assets"] == 1
+    assert report["test"]["observations_by_asset"]["SHORT3"] > 0
 
 
 def test_holdout_remains_rejected_when_only_three_signals_are_available():

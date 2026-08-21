@@ -135,6 +135,8 @@ class ObservationPartitions:
     train: tuple[CalibrationObservation, ...]
     validation: tuple[CalibrationObservation, ...]
     test: tuple[CalibrationObservation, ...]
+    global_train_end: datetime | None = None
+    global_validation_end: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,51 +233,61 @@ def build_observation_partitions(
     config: CalibrationConfig,
     engine: AnalysisEngine | None = None,
 ) -> ObservationPartitions:
+    """Build partitions from shared global chronological cutoffs.
+
+    The cutoffs are derived from the sorted, distinct candle timestamps across
+    every eligible asset.  An asset with a shorter provider window may therefore
+    contribute only to the final holdout; it is never assigned an artificial
+    per-asset training period that overlaps another asset's global holdout.
+    """
+
     analysis_engine = engine or AnalysisEngine()
     train: list[CalibrationObservation] = []
     validation: list[CalibrationObservation] = []
     test: list[CalibrationObservation] = []
 
+    minimum_candles = config.analysis_period + config.forward_horizon + 3
+    prepared_by_asset = {}
     for asset_id, raw_candles in candles_by_asset.items():
         candles = prepare_historical_candles(raw_candles)
-        if len(candles) < config.analysis_period + config.forward_horizon + 3:
-            continue
+        if len(candles) >= minimum_candles:
+            prepared_by_asset[asset_id] = candles
+    dates = tuple(
+        sorted(
+            {
+                candle.timestamp
+                for candles in prepared_by_asset.values()
+                for candle in candles
+            }
+        )
+    )
+    if not dates:
+        return ObservationPartitions((), (), ())
 
-        train_cut = int(Decimal(len(candles)) * config.train_ratio)
-        validation_cut = int(
-            Decimal(len(candles)) * (config.train_ratio + config.validation_ratio)
-        )
+    train_end = _global_cutoff(dates, config.train_ratio)
+    validation_end = _global_cutoff(
+        dates,
+        config.train_ratio + config.validation_ratio,
+    )
 
-        train.extend(
-            _partition_observations(
-                candles,
-                asset_id=asset_id,
-                signal_start=config.analysis_period - 1,
-                signal_stop=train_cut - config.forward_horizon,
-                config=config,
-                engine=analysis_engine,
-            )
+    for asset_id, candles in prepared_by_asset.items():
+        observations = _asset_observations(
+            candles,
+            asset_id=asset_id,
+            config=config,
+            engine=analysis_engine,
         )
-        validation.extend(
-            _partition_observations(
-                candles,
-                asset_id=asset_id,
-                signal_start=max(train_cut, config.analysis_period - 1),
-                signal_stop=validation_cut - config.forward_horizon,
-                config=config,
-                engine=analysis_engine,
-            )
-        )
-        test.extend(
-            _partition_observations(
-                candles,
-                asset_id=asset_id,
-                signal_start=max(validation_cut, config.analysis_period - 1),
-                signal_stop=len(candles) - config.forward_horizon,
-                config=config,
-                engine=analysis_engine,
-            )
-        )
+        for observation in observations:
+            if observation.signal_at <= train_end and observation.outcome_at <= train_end:
+                train.append(observation)
+            elif (
+                observation.signal_at > train_end
+                and observation.signal_at <= validation_end
+                and observation.outcome_at <= validation_end
+            ):
+                validation.append(observation)
+            elif observation.signal_at > validation_end:
+                test.append(observation)
 
     return ObservationPartitions(
         train=tuple(sorted(train, key=lambda item: (item.signal_at, str(item.asset_id)))),
@@ -283,23 +295,27 @@ def build_observation_partitions(
             sorted(validation, key=lambda item: (item.signal_at, str(item.asset_id)))
         ),
         test=tuple(sorted(test, key=lambda item: (item.signal_at, str(item.asset_id)))),
+        global_train_end=train_end,
+        global_validation_end=validation_end,
     )
 
 
-def _partition_observations(
+def _global_cutoff(dates: tuple[datetime, ...], ratio: Decimal) -> datetime:
+    """Return a chronological global cutoff using the common date timeline."""
+
+    return dates[int(Decimal(len(dates) - 1) * ratio)]
+
+
+def _asset_observations(
     candles: tuple[Candle, ...],
     *,
     asset_id: UUID,
-    signal_start: int,
-    signal_stop: int,
     config: CalibrationConfig,
     engine: AnalysisEngine,
 ) -> list[CalibrationObservation]:
     observations: list[CalibrationObservation] = []
-    start_index = max(0, signal_start)
-    stop_index = max(start_index, signal_stop)
 
-    for index in range(start_index, stop_index):
+    for index in range(config.analysis_period - 1, len(candles) - config.forward_horizon):
         signal_candle = candles[index]
         window_start = signal_candle.timestamp - timedelta(
             days=config.analysis_lookback_days

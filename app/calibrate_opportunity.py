@@ -15,10 +15,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Mapping
 from uuid import UUID
 
 from app.backtesting.calibration import (
     CalibrationConfig,
+    ObservationPartitions,
     build_observation_partitions,
     calibrate_partitions,
     result_to_dict,
@@ -129,14 +131,38 @@ def format_history_failure(symbol: str, exc: Exception) -> str:
     )
 
 
-def has_usable_chronological_partitions(
-    asset_id: UUID,
-    candles: tuple[Candle, ...],
+def partition_report(
+    partitions: ObservationPartitions,
     *,
-    config: CalibrationConfig,
-) -> bool:
-    partitions = build_observation_partitions({asset_id: candles}, config=config)
-    return bool(partitions.train and partitions.validation and partitions.test)
+    symbols_by_asset: Mapping[UUID, str],
+) -> dict[str, object]:
+    """Create an audit-friendly report for the shared chronological split."""
+
+    def iso(value: datetime | None) -> str | None:
+        return value.isoformat() if value is not None else None
+
+    def describe(items: tuple) -> dict[str, object]:
+        counts: dict[str, int] = {}
+        for item in items:
+            symbol = symbols_by_asset.get(item.asset_id, str(item.asset_id))
+            counts[symbol] = counts.get(symbol, 0) + 1
+        return {
+            "observations": len(items),
+            "contributing_assets": len(counts),
+            "observations_by_asset": dict(sorted(counts.items())),
+            "first_signal_at": iso(min((item.signal_at for item in items), default=None)),
+            "last_signal_at": iso(max((item.signal_at for item in items), default=None)),
+            "first_outcome_at": iso(min((item.outcome_at for item in items), default=None)),
+            "last_outcome_at": iso(max((item.outcome_at for item in items), default=None)),
+        }
+
+    return {
+        "global_train_end": iso(partitions.global_train_end),
+        "global_validation_end": iso(partitions.global_validation_end),
+        "train": describe(partitions.train),
+        "validation": describe(partitions.validation),
+        "test": describe(partitions.test),
+    }
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -208,7 +234,8 @@ def main() -> None:
     http = ProviderHttpClient(base_url="https://brapi.dev", timeout_seconds=20)
     provider = BrapiProvider(http, token=settings.brapi_token)
     end = datetime.now(UTC)
-    candles_by_asset = {}
+    candles_by_asset: dict[UUID, tuple[Candle, ...]] = {}
+    symbols_by_asset: dict[UUID, str] = {}
     history_by_symbol: dict[str, dict[str, int | str | None]] = {}
 
     try:
@@ -224,19 +251,8 @@ def main() -> None:
             except (ProviderError, CalibrationHistoryError) as exc:
                 print(format_history_failure(mapping.provider_symbol, exc))
                 continue
-            if not has_usable_chronological_partitions(
-                mapping.asset_id,
-                loaded.candles,
-                config=config,
-            ):
-                print(
-                    format_history_failure(
-                        mapping.provider_symbol,
-                        CalibrationHistoryError("INSUFFICIENT_CHRONOLOGICAL_SAMPLE"),
-                    )
-                )
-                continue
             candles_by_asset[mapping.asset_id] = loaded.candles
+            symbols_by_asset[mapping.asset_id] = mapping.provider_symbol
             history_by_symbol[mapping.provider_symbol] = {
                 "requested_days": loaded.requested_days,
                 "loaded_window_days": loaded.loaded_window_days,
@@ -262,6 +278,10 @@ def main() -> None:
         candles_by_asset,
         config=config,
     )
+    if not (partitions.train and partitions.validation and partitions.test):
+        raise SystemExit(
+            "Amostra histórica global insuficiente para treino, validação e holdout"
+        )
     result = calibrate_partitions(partitions, config=config)
     report = {
         "methodology": {
@@ -280,6 +300,10 @@ def main() -> None:
             "telegram_used": False,
             "trading_used": False,
             "history_by_symbol": history_by_symbol,
+            "global_partitions": partition_report(
+                partitions,
+                symbols_by_asset=symbols_by_asset,
+            ),
         },
         "result": result_to_dict(result),
     }
