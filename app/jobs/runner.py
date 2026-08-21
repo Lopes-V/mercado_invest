@@ -1,5 +1,4 @@
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -10,13 +9,9 @@ from app.jobs.contracts import Job
 from app.jobs.errors import JobRunnerError
 from app.jobs.models import JobContext, JobResult, JobRunStatus, JobTrigger, ensure_job_name, ensure_utc_datetime
 from app.monitoring.logger import get_logger
+from app.security.redaction import sanitize_sensitive_text
 
 
-_BEARER_RE = re.compile(r"(?i)(bearer\s+)[^\s,;]+")
-_ASSIGNMENT_SECRET_RE = re.compile(
-    r"(?i)\b(token|secret|api[_ -]?key)\s*=\s*[^\s,;]+"
-)
-_MAX_ERROR_MESSAGE_LENGTH = 1000
 
 
 def build_scheduled_run_key(job_name: str, scheduled_for: datetime) -> str:
@@ -26,10 +21,7 @@ def build_scheduled_run_key(job_name: str, scheduled_for: datetime) -> str:
 
 
 def sanitize_error_message(error: Exception) -> str:
-    message = str(error)
-    message = _BEARER_RE.sub(r"\1[REDACTED]", message)
-    message = _ASSIGNMENT_SECRET_RE.sub(r"\1=[REDACTED]", message)
-    return message[:_MAX_ERROR_MESSAGE_LENGTH] or error.__class__.__name__
+    return sanitize_sensitive_text(error)
 
 
 @dataclass(frozen=True, slots=True)

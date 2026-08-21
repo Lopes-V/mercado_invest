@@ -48,3 +48,6 @@ Dados desatualizados:
 
 Serviço indisponível:
 "Análise indisponível no momento."
+# Alertas de oportunidade
+
+O canal Telegram recebe somente uma decisão já qualificada. A mensagem não é ordem e não pode usar “compre”, “venda” ou promessa de retorno. Tokens nunca entram em mensagens, URLs ou logs.

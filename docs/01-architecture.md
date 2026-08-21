@@ -77,3 +77,6 @@ A arquitetura deve suportar:
 - países
 - fusos horários
 - providers
+# Extensões locais 5–16
+
+Os limites permanecem: Market Data → Quality → Analysis → (AI como interpretação) → Opportunity → Alert decision. Portfolio, backtesting e paper trading são módulos determinísticos separados; paper trading não possui qualquer caminho para corretora. O worker de jobs é single-process e a composição de infraestrutura fica em `app.bootstrap`.

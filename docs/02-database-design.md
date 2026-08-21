@@ -100,3 +100,6 @@ As versões de migration registradas remotamente diferiam dos timestamps locais.
 ## Repositories
 
 `CurrencyRepository`, `MarketRepository`, `ExchangeRepository` e `AssetRepository` recebem um `supabase.Client` já criado pelo backend. Eles retornam modelos tipados, validam UUIDs, timestamps e campos nullable das respostas do PostgREST e propagam erros externos; constraints, FKs e RLS continuam sendo garantias do banco.
+# Tabelas locais posteriores à Etapa 4
+
+As migrations locais adicionam `portfolios`, `portfolio_transactions`, `portfolio_snapshots`, `analyses`, `analysis_metrics`, `ai_runs`, `opportunities`, `alerts`, `backtest_runs`, `backtest_events`, `paper_accounts`, `paper_orders`, `paper_trades`, `fixed_income_instruments`, `fixed_income_snapshots`, `fixed_income_history` e `fx_rates`. Todas usam RLS deny-by-default, nenhuma policy e CRUD mínimo para `service_role`. A aplicação remota dessas migrations continua pendente.

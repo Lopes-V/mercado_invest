@@ -32,3 +32,7 @@ O mesmo evento não deve gerar spam.
 
 ## Futuro
 Limites serão calibrados através de backtesting.
+
+## Implementação atual
+
+Alertas exigem quality `VALID`, nível mínimo, destinatário autorizado e cooldown calculado contra alertas `SENT`. A mensagem permitida contém fatos auditáveis, nível, score e riscos; não recomenda comprar, vender ou promete resultado.

@@ -49,3 +49,7 @@ Registrar:
 - duração
 - tokens
 - versão
+
+## Provider
+
+O adaptador OpenAI usa a Responses API em backend, `Authorization: Bearer` e Structured Outputs com JSON Schema estrito. A chave é opcional para inicialização geral e jamais fica em URL, log, persistência ou frontend. A resposta passa por validação de domínio novamente; não persiste chain-of-thought.

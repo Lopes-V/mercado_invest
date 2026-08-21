@@ -1,0 +1,13 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.lock.txt
+      - run: pytest -q
+      - run: git diff --check
+      - run: '! git grep -nE "^(TELEGRAM_BOT_TOKEN|SUPABASE_SECRET_KEY|BRAPI_TOKEN|OPENAI_API_KEY|TWELVE_DATA_API_KEY)=.+"'

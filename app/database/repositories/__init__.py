@@ -8,6 +8,8 @@ from app.database.repositories.market_data import (
     MarketQuoteRepository,
     ProviderSymbolRepository,
 )
+from app.database.repositories.portfolio import PortfolioRepository, PortfolioSnapshotRepository, PortfolioTransactionRepository
+from app.database.repositories.stage_records import AnalysisRepository, AnalysisMetricRepository, AIRunRepository, OpportunityRepository, AlertRepository, BacktestRunRepository, BacktestEventRepository, PaperAccountRepository, PaperOrderRepository, PaperTradeRepository, FixedIncomeInstrumentRepository, FixedIncomeSnapshotRepository, FixedIncomeHistoryRepository, FxRateRepository
 
 
 __all__ = [
@@ -19,4 +21,8 @@ __all__ = [
     "MarketCandleRepository",
     "MarketQuoteRepository",
     "ProviderSymbolRepository",
+    "PortfolioRepository",
+    "PortfolioTransactionRepository",
+    "PortfolioSnapshotRepository",
+    "AnalysisRepository", "AnalysisMetricRepository", "AIRunRepository", "OpportunityRepository", "AlertRepository", "BacktestRunRepository", "BacktestEventRepository", "PaperAccountRepository", "PaperOrderRepository", "PaperTradeRepository", "FixedIncomeInstrumentRepository", "FixedIncomeSnapshotRepository", "FixedIncomeHistoryRepository", "FxRateRepository",
 ]

@@ -66,3 +66,6 @@ O Full E2E opt-in valida o pipeline real BRAPI → modelos normalizados (`qualit
 ## Regra
 
 Dados `INVALID` nunca podem chegar à IA. Payloads de providers passam primeiro pelo adapter, modelos normalizados, qualidade e persistência; nunca entram diretamente na IA.
+# Extensões globais locais
+
+O provider Twelve Data é isolado no adapter e preserva metadados de moeda, exchange, MIC e timezone. O adapter de Tesouro Direto é separado do provider de ações BRAPI. Nenhum dos adapters avalia quality; dados com `quality=None` passam pelo engine antes da persistência.

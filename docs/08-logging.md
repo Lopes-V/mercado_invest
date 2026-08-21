@@ -46,3 +46,6 @@ Nunca registrar valores de:
 - tokens de autenticação
 
 Erros devem fornecer contexto sem revelar secrets.
+# Jobs e segredos
+
+Eventos de job usam `job_started`, `job_succeeded`, `job_failed` e `job_skipped_duplicate`, incluindo correlation ID, slot e run ID. Mensagens operacionais passam por redaction limitada de Bearer, tokens e chaves conhecidas; headers, URLs com segredo e payload financeiro completo não devem ser registrados.

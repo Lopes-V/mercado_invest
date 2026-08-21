@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "supabase",
     "python-dotenv",
+    "httpx",
 ]
 
 [project.optional-dependencies]

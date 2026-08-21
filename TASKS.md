@@ -2,15 +2,15 @@
 
 ## Etapa atual
 
-ETAPA 4 — Automation / Jobs (CONCLUÍDA)
+ETAPA 5 — Portfolio
 
 ## Tarefa atual
 
-Próxima etapa planejada: ETAPA 5 — Portfolio
+5.1 — portfolio core e migration local
 
 ## Status
 
-CONCLUÍDA
+EM ANDAMENTO
 
 ## Etapa 1 concluída
 
@@ -548,6 +548,102 @@ A revisão externa final confirmou:
 - DB integration e Full E2E reais validados;
 - cleanup por IDs exatos validado;
 - nenhuma secret exposta.
+
+## Etapas 5–16 — estado final de implementação
+
+As migrations das etapas 5–16, incluindo `20260821213038_add_stage5_16_query_indexes`, foram aplicadas e validadas remotamente. RLS deny-by-default, ausência de policies e grants CRUD mínimos para `service_role` foram confirmados. Os gates abaixo distinguem apenas as lives que dependem de credenciais/configuração externa.
+
+### Auditoria de índices das etapas 5–16
+
+- [x] migration `20260821213038_add_stage5_16_query_indexes` aplicada remotamente
+- [x] índices criados apenas para consultas concretas de repositories/services
+- [x] avisos restantes de FK sem consulta correspondente aceitos conscientemente
+- [x] INFO de índice ainda sem uso observado não é blocker
+
+### Etapa 5 — Portfolio
+- [x] migration local e RLS deny-by-default
+- [x] custo médio determinístico em Decimal, buy/sell e proteção contra oversell
+- [x] valuation somente com qualidade VALID; FX explícito obrigatório
+- [x] repositories locais de portfolio, transações e snapshots
+## Gate 5
+Status: ✅ APROVADA
+
+### Etapa 6 — Indicators / Analysis Engine
+- [x] migration local analyses/analysis_metrics
+- [x] RETURN, SMA, MOMENTUM, VOLATILITY, AVERAGE_VOLUME, RSI Wilder e MAX_DRAWDOWN
+- [x] somente candles VALID, ordenação e bloqueio de timestamp duplicado
+## Gate 6
+Status: ✅ APROVADA
+
+### Etapa 7 — AI Engine
+- [x] contexto validado, schema de resposta e adaptador Responses API estruturado
+- [x] migration local ai_runs e sanitização compartilhada
+- [ ] integração OpenAI live (requer OPENAI_API_KEY)
+## Gate 7
+Status: ✅ IMPLEMENTADA
+OpenAI live: ⚠ PENDENTE — `OPENAI_API_KEY` ausente
+
+### Etapa 8 — Opportunity Engine
+- [x] policy e score Decimal com categorias de evidência
+- [x] IA não eleva sozinha além de WATCH; quality/timestamp gate
+- [x] migration local opportunities
+## Gate 8
+Status: ✅ APROVADA
+
+### Etapa 9 — Alerts / Telegram
+- [x] decisão por nível, quality, recipient, cooldown e limite
+- [x] migration local alerts
+- [ ] integração Telegram live autorizada
+## Gate 9
+Status: ✅ IMPLEMENTADA
+Telegram alert live: ⚠ PENDENTE — token e recipient autorizado ausentes
+
+### Etapa 10 — Backtesting
+- [x] walk-forward, horizonte futuro separado e resultados Decimal
+- [x] migration local backtest_runs/backtest_events
+## Gate 10
+Status: ✅ APROVADA
+
+### Etapa 11 — Paper Trading
+- [x] execução simulada somente no open do próximo candle
+- [x] bloqueio de cash/posição insuficiente e migration local
+## Gate 11
+Status: ✅ APROVADA
+
+### Etapa 12 — Hardening / Security
+- [x] índice de stale runs, recovery sem reexecução, redaction e health local
+## Gate 12
+Status: ✅ APROVADA
+
+### Etapa 13 — Deploy readiness
+- [x] bootstrap, worker cooperativo, Dockerfile não-root e CI local
+- [ ] deploy remoto escolhido
+## Gate 13
+Status: ✅ DEPLOY-READY
+Remote deployment: ⚠ PENDENTE
+
+### Etapa 14 — Fixed Income
+- [x] modelos, provider BRAPI Treasury V2 e migrations locais
+- [x] Treasury sandbox live HTTP real
+## Gate 14
+Status: ✅ APROVADA
+
+### Etapa 15 — US Market
+- [x] Twelve Data, FX schema e valuation FX somente com rate VALID
+- [ ] integração Twelve Data live
+## Gate 15
+Status: ✅ IMPLEMENTADA
+Twelve Data live: ⚠ PENDENTE — `TWELVE_DATA_API_KEY` ausente
+
+### Etapa 16 — Other Markets
+- [x] core preserva currency/exchange/provider externos sem regras BR/US
+- [ ] integração global opt-in
+## Gate 16
+Status: ✅ IMPLEMENTADA
+Global live: ⚠ PENDENTE — depende de `TWELVE_DATA_API_KEY` e configuração global
+
+## Gate técnico geral
+Status: ⚠ AGUARDANDO REVISÃO EXTERNA
 
 ## Etapa 4 — Automation / Jobs
 

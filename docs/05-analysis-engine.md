@@ -28,3 +28,7 @@ AnalysisMetrics:
 
 ## Versionamento
 Alterações nas fórmulas precisam aumentar a versão do algoritmo.
+
+## Implementação atual
+
+`analysis-v1` calcula RETURN, SMA, MOMENTUM, AVERAGE_VOLUME, volatilidade populacional de retornos simples (sem anualização), RSI de Wilder e MAX_DRAWDOWN. A entrada é ordenada por timestamp, rejeita duplicidade e exige `Candle.quality == VALID`; candles não são interpolados.

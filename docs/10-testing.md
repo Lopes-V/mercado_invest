@@ -67,3 +67,7 @@ RUN_STAGE4_E2E=1 python -m pytest tests/integration/test_stage4_scheduler_e2e.py
 ```
 
 As duas integrações exigem a migration `job_runs` aplicada remotamente. A validação externa habilitada passou com 6 testes e 0 skipped; a suíte normal validada teve 254 passed e 6 skipped.
+
+## Etapas 5–16
+
+As integrações futuras são opt-in e não são aprovação implícita quando skipped: `RUN_PORTFOLIO_DB_INTEGRATION`, `RUN_ANALYSIS_DB_INTEGRATION`, `RUN_OPENAI_INTEGRATION`, `RUN_OPPORTUNITY_DB_INTEGRATION`, `RUN_TELEGRAM_ALERT_INTEGRATION`, `RUN_BACKTEST_DB_INTEGRATION`, `RUN_PAPER_TRADING_DB_INTEGRATION`, `RUN_TREASURY_INTEGRATION`, `RUN_TWELVE_DATA_INTEGRATION`, `RUN_GLOBAL_MARKET_INTEGRATION` e `RUN_FULL_PIPELINE_E2E`. Elas só devem ser habilitadas após a migration correspondente e credenciais seguras estarem disponíveis.

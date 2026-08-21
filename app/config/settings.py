@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 from dotenv import load_dotenv
@@ -28,11 +28,20 @@ class Settings:
     log_level: LogLevel
 
     supabase_url: str
-    supabase_secret_key: str
+    supabase_secret_key: str = field(repr=False)
 
-    telegram_bot_token: str
+    telegram_bot_token: str = field(repr=False)
     telegram_allowed_user_ids: frozenset[int]
     brapi_token: str | None = None
+    openai_api_key: str | None = field(default=None, repr=False)
+    openai_model: str | None = None
+    twelve_data_api_key: str | None = field(default=None, repr=False)
+    market_quotes_enabled: bool = False
+    market_quotes_interval_seconds: int = 300
+    market_history_enabled: bool = False
+    market_history_interval_seconds: int = 86400
+    market_history_lookback_days: int = 30
+    market_history_candle_interval: str = "1d"
 
 
 def get_required_env(name: str) -> str:
@@ -81,6 +90,23 @@ def parse_telegram_allowed_user_ids(
         user_ids.add(user_id)
 
     return frozenset(user_ids)
+
+
+def _optional_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None or not value.strip(): return default
+    if value.strip().lower() in {"1", "true", "yes"}: return True
+    if value.strip().lower() in {"0", "false", "no"}: return False
+    raise ValueError(f"{name} deve ser booleano")
+
+
+def _positive_int(name: str, default: int) -> int:
+    raw=os.getenv(name)
+    if raw is None or not raw.strip(): return default
+    try: value=int(raw)
+    except ValueError as exc: raise ValueError(f"{name} deve ser inteiro") from exc
+    if value<=0: raise ValueError(f"{name} deve ser positivo")
+    return value
 
 
 def get_settings() -> Settings:
@@ -145,4 +171,13 @@ def get_settings() -> Settings:
             telegram_allowed_user_ids
         ),
         brapi_token=get_optional_env("BRAPI_TOKEN"),
+        openai_api_key=get_optional_env("OPENAI_API_KEY"),
+        openai_model=get_optional_env("OPENAI_MODEL"),
+        twelve_data_api_key=get_optional_env("TWELVE_DATA_API_KEY"),
+        market_quotes_enabled=_optional_bool("MARKET_QUOTES_ENABLED", False),
+        market_quotes_interval_seconds=_positive_int("MARKET_QUOTES_INTERVAL_SECONDS", 300),
+        market_history_enabled=_optional_bool("MARKET_HISTORY_ENABLED", False),
+        market_history_interval_seconds=_positive_int("MARKET_HISTORY_INTERVAL_SECONDS", 86400),
+        market_history_lookback_days=_positive_int("MARKET_HISTORY_LOOKBACK_DAYS", 30),
+        market_history_candle_interval=get_optional_env("MARKET_HISTORY_CANDLE_INTERVAL") or "1d",
     )

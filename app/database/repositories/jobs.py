@@ -3,7 +3,7 @@ from uuid import UUID
 
 from supabase import Client
 
-from app.database.models import JobRunRecord
+from app.database.models import JobRunRecord, RepositoryDataError
 from app.database.repositories._response import create_one, read_one_or_none
 from app.jobs.models import JobRunStatus, JobTrigger, ensure_job_name, ensure_utc_datetime
 
@@ -56,3 +56,11 @@ class JobRunRepository:
         ensure_job_name(job_name)
         query = self._client.table("job_runs").select("*").eq("job_name", job_name).order("scheduled_for", desc=True)
         return read_one_or_none(query, operation="get latest job run", parser=JobRunRecord.from_payload)
+
+    def list_stale_running(self, before: datetime) -> tuple[JobRunRecord, ...]:
+        cutoff = ensure_utc_datetime(before, field="before")
+        response = self._client.table("job_runs").select("*").eq("status", JobRunStatus.RUNNING.value).lt("started_at", cutoff.isoformat()).order("started_at", desc=False).execute()
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list):
+            raise RepositoryDataError("list stale job runs retornou dados inválidos")
+        return tuple(JobRunRecord.from_payload(row) for row in rows)
