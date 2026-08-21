@@ -1,10 +1,18 @@
 from app.jobs.contracts import Job
 from app.jobs.errors import JobError, JobRunnerError, JobScheduleError, JobValidationError
+from app.jobs.investment_pipeline import AutomatedInvestmentPipelineJob
 from app.jobs.models import JobContext, JobResult, JobRunStatus, JobTrigger
-from app.jobs.schedule import IntervalSchedule, ScheduledJob, SchedulerFailure, SchedulerRoundResult, SchedulerService
+from app.jobs.schedule import (
+    IntervalSchedule,
+    ScheduledJob,
+    SchedulerFailure,
+    SchedulerRoundResult,
+    SchedulerService,
+)
 
 
 __all__ = [
+    "AutomatedInvestmentPipelineJob",
     "IntervalSchedule",
     "Job",
     "JobContext",
