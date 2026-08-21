@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from uuid import UUID
 
 from app.backtesting.calibration import (
     CalibrationConfig,
@@ -25,9 +27,116 @@ from app.config.settings import get_settings
 from app.database.client import create_supabase_client
 from app.database.repositories import ProviderSymbolRepository
 from app.market_data.contracts import HistoryRequest
+from app.market_data.errors import ProviderError, ProviderHttpError
 from app.market_data.http import ProviderHttpClient
-from app.market_data.models import CandleInterval
+from app.market_data.models import Candle, CandleInterval
 from app.market_data.providers.brapi import BrapiProvider
+
+
+_HISTORY_FALLBACK_DAYS = (365, 180, 90, 30)
+_BRAPI_WINDOW_LIMIT_CODES = frozenset({"INVALID_RANGE", "DATE_WINDOW_EXCEEDED"})
+
+
+class CalibrationHistoryError(RuntimeError):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class LoadedHistory:
+    candles: tuple[Candle, ...]
+    requested_days: int
+    loaded_window_days: int
+    fallback_code: str | None
+
+
+def history_window_candidates(requested_days: int) -> tuple[int, ...]:
+    if isinstance(requested_days, bool) or not isinstance(requested_days, int):
+        raise ValueError("history_days deve ser inteiro")
+    if requested_days <= 0:
+        raise ValueError("history_days deve ser positivo")
+    return tuple(
+        dict.fromkeys(
+            (requested_days,)
+            + tuple(days for days in _HISTORY_FALLBACK_DAYS if days < requested_days)
+        )
+    )
+
+
+def load_brapi_history_with_fallback(
+    provider: BrapiProvider,
+    *,
+    asset_id: UUID,
+    provider_symbol: str,
+    end: datetime,
+    history_days: int,
+) -> LoadedHistory:
+    """Load the largest requested BRAPI window accepted for this asset/plan.
+
+    Only BRAPI's explicit range-limit codes may shorten the requested window.
+    Authentication, rate-limit and malformed-response failures remain visible
+    to the caller and never become a synthetic history.
+    """
+
+    candidates = history_window_candidates(history_days)
+    fallback_code: str | None = None
+    for window_days in candidates:
+        try:
+            candles = tuple(
+                provider.get_history(
+                    HistoryRequest(
+                        asset_id=asset_id,
+                        provider_symbol=provider_symbol,
+                        interval=CandleInterval.ONE_DAY,
+                        start=end - timedelta(days=window_days),
+                        end=end,
+                    )
+                )
+            )
+        except ProviderHttpError as exc:
+            if (
+                exc.status_code == 400
+                and exc.provider_code in _BRAPI_WINDOW_LIMIT_CODES
+                and window_days != candidates[-1]
+            ):
+                fallback_code = exc.provider_code
+                continue
+            raise
+        if not candles:
+            raise CalibrationHistoryError("EMPTY_HISTORY")
+        return LoadedHistory(
+            candles=candles,
+            requested_days=history_days,
+            loaded_window_days=window_days,
+            fallback_code=fallback_code,
+        )
+    raise CalibrationHistoryError("HISTORY_WINDOW_UNAVAILABLE")
+
+
+def format_history_failure(symbol: str, exc: Exception) -> str:
+    """Return an operational diagnostic without response body, URL, or token."""
+
+    status = "none"
+    code = "UNSPECIFIED"
+    if isinstance(exc, ProviderHttpError):
+        status = str(exc.status_code)
+        code = exc.provider_code or code
+    elif isinstance(exc, CalibrationHistoryError):
+        code = exc.code
+    return (
+        f"SKIP {symbol}: status={status} type={type(exc).__name__} code={code}"
+    )
+
+
+def has_usable_chronological_partitions(
+    asset_id: UUID,
+    candles: tuple[Candle, ...],
+    *,
+    config: CalibrationConfig,
+) -> bool:
+    partitions = build_observation_partitions({asset_id: candles}, config=config)
+    return bool(partitions.train and partitions.validation and partitions.test)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -57,8 +166,8 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _parser().parse_args()
-    if args.history_days < 180:
-        raise SystemExit("--history-days deve ser >= 180")
+    if args.history_days < 90:
+        raise SystemExit("--history-days deve ser >= 90")
     if args.max_assets <= 0:
         raise SystemExit("--max-assets deve ser positivo")
 
@@ -99,33 +208,50 @@ def main() -> None:
     http = ProviderHttpClient(base_url="https://brapi.dev", timeout_seconds=20)
     provider = BrapiProvider(http, token=settings.brapi_token)
     end = datetime.now(UTC)
-    start = end - timedelta(days=args.history_days)
     candles_by_asset = {}
+    history_by_symbol: dict[str, dict[str, int | str | None]] = {}
 
     try:
         for mapping in mappings:
             try:
-                candles = provider.get_history(
-                    HistoryRequest(
-                        asset_id=mapping.asset_id,
-                        provider_symbol=mapping.provider_symbol,
-                        interval=CandleInterval.ONE_DAY,
-                        start=start,
-                        end=end,
+                loaded = load_brapi_history_with_fallback(
+                    provider,
+                    asset_id=mapping.asset_id,
+                    provider_symbol=mapping.provider_symbol,
+                    end=end,
+                    history_days=args.history_days,
+                )
+            except (ProviderError, CalibrationHistoryError) as exc:
+                print(format_history_failure(mapping.provider_symbol, exc))
+                continue
+            if not has_usable_chronological_partitions(
+                mapping.asset_id,
+                loaded.candles,
+                config=config,
+            ):
+                print(
+                    format_history_failure(
+                        mapping.provider_symbol,
+                        CalibrationHistoryError("INSUFFICIENT_CHRONOLOGICAL_SAMPLE"),
                     )
                 )
-            except Exception as exc:
-                print(
-                    f"SKIP {mapping.provider_symbol}: "
-                    f"{exc.__class__.__name__}"
-                )
                 continue
-            if candles:
-                candles_by_asset[mapping.asset_id] = tuple(candles)
-                print(
-                    f"OK {mapping.provider_symbol}: "
-                    f"{len(candles)} candles"
-                )
+            candles_by_asset[mapping.asset_id] = loaded.candles
+            history_by_symbol[mapping.provider_symbol] = {
+                "requested_days": loaded.requested_days,
+                "loaded_window_days": loaded.loaded_window_days,
+                "candles": len(loaded.candles),
+                "fallback_code": loaded.fallback_code,
+            }
+            fallback_note = (
+                f" (fallback {loaded.fallback_code})"
+                if loaded.loaded_window_days < loaded.requested_days
+                else ""
+            )
+            print(
+                f"OK {mapping.provider_symbol}: {len(loaded.candles)} candles "
+                f"window_days={loaded.loaded_window_days}{fallback_note}"
+            )
     finally:
         provider.close()
 
@@ -153,6 +279,7 @@ def main() -> None:
             "ai_used": False,
             "telegram_used": False,
             "trading_used": False,
+            "history_by_symbol": history_by_symbol,
         },
         "result": result_to_dict(result),
     }

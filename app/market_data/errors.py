@@ -29,9 +29,16 @@ class ProviderTransportError(ProviderError):
 class ProviderHttpError(ProviderError):
     """Raised when a provider returns an unsuccessful HTTP status."""
 
-    def __init__(self, message: str, *, status_code: int) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        provider_code: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
+        self.provider_code = provider_code
 
 
 class ProviderRateLimitError(ProviderHttpError):

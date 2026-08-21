@@ -2,6 +2,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
+
 from app.backtesting.calibration import (
     CalibrationConfig,
     CalibrationObservation,
@@ -9,6 +11,14 @@ from app.backtesting.calibration import (
     build_observation_partitions,
     calibrate_partitions,
 )
+from app.calibrate_opportunity import (
+    CalibrationHistoryError,
+    format_history_failure,
+    has_usable_chronological_partitions,
+    history_window_candidates,
+    load_brapi_history_with_fallback,
+)
+from app.market_data.errors import ProviderHttpError
 from app.market_data.models import Candle, CandleInterval, DataQuality
 
 
@@ -136,3 +146,199 @@ def test_historical_replay_rejects_zero_price():
         assert "OHLC estritamente positivo" in str(exc)
     else:
         raise AssertionError("zero price deveria ser rejeitado")
+
+
+def _candles(asset_id, *, count: int) -> tuple[Candle, ...]:
+    return tuple(
+        Candle(
+            asset_id=asset_id,
+            provider_symbol="TEST3",
+            timestamp=NOW + timedelta(days=index),
+            open=Decimal("100") + Decimal(index),
+            high=Decimal("101") + Decimal(index),
+            low=Decimal("99") + Decimal(index),
+            close=Decimal("100") + Decimal(index),
+            volume=Decimal("1000"),
+            interval=CandleInterval.ONE_DAY,
+            provider="brapi",
+            received_at=NOW,
+            quality=None,
+        )
+        for index in range(count)
+    )
+
+
+def test_history_window_candidates_descend_without_weakening_requested_window():
+    assert history_window_candidates(730) == (730, 365, 180, 90, 30)
+    assert history_window_candidates(90) == (90, 30)
+
+
+@pytest.mark.parametrize("limit_code", ["INVALID_RANGE", "DATE_WINDOW_EXCEEDED"])
+def test_history_fallback_only_handles_explicit_brapi_window_limit(limit_code: str):
+    asset_id = uuid4()
+
+    class Provider:
+        def __init__(self):
+            self.windows: list[int] = []
+
+        def get_history(self, request):
+            window = (request.end - request.start).days
+            self.windows.append(window)
+            if window > 90:
+                raise ProviderHttpError(
+                    "generic HTTP failure",
+                    status_code=400,
+                    provider_code=limit_code,
+                )
+            return _candles(asset_id, count=80)
+
+    provider = Provider()
+    loaded = load_brapi_history_with_fallback(
+        provider,
+        asset_id=asset_id,
+        provider_symbol="BBDC4",
+        end=NOW + timedelta(days=730),
+        history_days=730,
+    )
+
+    assert provider.windows == [730, 365, 180, 90]
+    assert loaded.requested_days == 730
+    assert loaded.loaded_window_days == 90
+    assert loaded.fallback_code == limit_code
+    assert len(loaded.candles) == 80
+
+
+@pytest.mark.parametrize(
+    ("status_code", "provider_code"),
+    [
+        (400, "BAD_REQUEST"),
+        (401, "UNAUTHORIZED"),
+        (403, "FORBIDDEN"),
+        (429, "RATE_LIMIT_EXCEEDED"),
+    ],
+)
+def test_history_fallback_never_masks_non_window_http_failures(
+    status_code: int, provider_code: str
+):
+    asset_id = uuid4()
+
+    class Provider:
+        def __init__(self):
+            self.windows: list[int] = []
+
+        def get_history(self, request):
+            self.windows.append((request.end - request.start).days)
+            raise ProviderHttpError(
+                "generic HTTP failure",
+                status_code=status_code,
+                provider_code=provider_code,
+            )
+
+    provider = Provider()
+
+    with pytest.raises(ProviderHttpError) as raised:
+        load_brapi_history_with_fallback(
+            provider,
+            asset_id=asset_id,
+            provider_symbol="BBDC4",
+            end=NOW + timedelta(days=730),
+            history_days=730,
+        )
+
+    assert raised.value.status_code == status_code
+    assert raised.value.provider_code == provider_code
+    assert provider.windows == [730]
+
+
+@pytest.mark.parametrize(
+    ("status_code", "provider_code"),
+    [
+        (400, "BAD_REQUEST"),
+        (401, "UNAUTHORIZED"),
+        (403, "FORBIDDEN"),
+        (429, "RATE_LIMIT_EXCEEDED"),
+    ],
+)
+def test_history_failures_are_diagnostic_and_never_leak_tokens(
+    status_code: int, provider_code: str
+):
+    error = ProviderHttpError(
+        "Bearer token-that-must-not-appear",
+        status_code=status_code,
+        provider_code=provider_code,
+    )
+    diagnostic = format_history_failure("BBDC4", error)
+
+    assert diagnostic == (
+        f"SKIP BBDC4: status={status_code} type=ProviderHttpError "
+        f"code={provider_code}"
+    )
+    assert "token-that-must-not-appear" not in diagnostic
+
+
+def test_empty_history_is_rejected_instead_of_becoming_a_fake_sample():
+    class Provider:
+        def get_history(self, request):
+            return ()
+
+    with pytest.raises(CalibrationHistoryError, match="EMPTY_HISTORY"):
+        load_brapi_history_with_fallback(
+            Provider(),
+            asset_id=uuid4(),
+            provider_symbol="BBDC4",
+            end=NOW,
+            history_days=90,
+        )
+
+
+def test_short_history_is_rejected_when_it_cannot_form_all_chronological_partitions():
+    asset_id = uuid4()
+    config = CalibrationConfig(
+        analysis_lookback_days=30,
+        analysis_period=14,
+        forward_horizon=5,
+        min_signals=8,
+    )
+
+    assert not has_usable_chronological_partitions(
+        asset_id,
+        _candles(asset_id, count=20),
+        config=config,
+    )
+
+
+def test_holdout_remains_rejected_when_only_three_signals_are_available():
+    config = CalibrationConfig(min_signals=8)
+    train = tuple(observation(index, positive=True) for index in range(30))
+    validation = tuple(
+        CalibrationObservation(
+            asset_id=item.asset_id,
+            signal_at=item.signal_at + timedelta(days=40),
+            outcome_at=item.outcome_at + timedelta(days=40),
+            metrics=item.metrics,
+            forward_return=item.forward_return,
+        )
+        for item in train
+    )
+    original_test = tuple(
+        CalibrationObservation(
+            asset_id=item.asset_id,
+            signal_at=item.signal_at + timedelta(days=80),
+            outcome_at=item.outcome_at + timedelta(days=80),
+            metrics=item.metrics,
+            forward_return=item.forward_return,
+        )
+        for item in train
+    )
+    reduced_holdout = ObservationPartitions(
+        train=train,
+        validation=validation,
+        test=original_test[-3:],
+    )
+
+    result = calibrate_partitions(reduced_holdout, config=config)
+
+    assert result.test is not None
+    assert result.test.signals == 3
+    assert not result.release_ready
+    assert result.rules_json() is None
