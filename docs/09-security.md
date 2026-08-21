@@ -30,3 +30,6 @@ Validar:
 ## Falha segura
 Quando não for possível garantir integridade dos dados:
 nenhuma recomendação deve ser emitida.
+
+## Market Data
+`BRAPI_TOKEN` é opcional e exclusivo do backend. Tokens de provider são enviados somente em `Authorization: Bearer`; nunca em query string, logs ou exceções. As tabelas `asset_provider_symbols`, `market_quotes` e `market_candles` seguem RLS deny-by-default, não possuem policies e concedem à service_role somente `SELECT`, `INSERT`, `UPDATE` e `DELETE`.

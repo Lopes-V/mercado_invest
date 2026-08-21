@@ -20,3 +20,27 @@ class ProviderError(MarketDataError):
 
 class ProviderCapabilityError(ProviderError):
     """Raised when a provider does not support a requested operation."""
+
+
+class ProviderTransportError(ProviderError):
+    """Raised when a provider transport operation cannot complete."""
+
+
+class ProviderHttpError(ProviderError):
+    """Raised when a provider returns an unsuccessful HTTP status."""
+
+    def __init__(self, message: str, *, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class ProviderRateLimitError(ProviderHttpError):
+    """Raised when a provider exhausts retries after rate limiting."""
+
+
+class ProviderResponseError(ProviderError):
+    """Raised when a provider response violates the expected contract."""
+
+
+class MarketDataIngestionError(MarketDataError):
+    """Raised when the ingestion orchestration contract is violated."""

@@ -1,6 +1,8 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
+from math import isfinite
 from uuid import UUID
 
 
@@ -106,6 +108,34 @@ def _datetime(payload: Mapping[str, object], field: str) -> datetime:
         )
 
     return parsed
+
+
+def _decimal(payload: Mapping[str, object], field: str) -> Decimal:
+    value = _required(payload, field)
+    if isinstance(value, bool):
+        raise RepositoryDataError(f"{field} deve preservar precisão decimal")
+    if isinstance(value, float):
+        # PostgREST decodifica colunas numeric como float no cliente Python.
+        # Converter sua representação textual evita Decimal(float), que
+        # incorporaria artefatos binários à representação decimal do record.
+        if not isfinite(value):
+            raise RepositoryDataError(f"{field} deve ser finito")
+        return Decimal(str(value))
+    if not isinstance(value, (str, int, Decimal)):
+        raise RepositoryDataError(f"{field} deve ser decimal")
+    try:
+        parsed = Decimal(value)
+    except (InvalidOperation, ValueError) as exc:
+        raise RepositoryDataError(f"{field} contém decimal inválido") from exc
+    if not parsed.is_finite():
+        raise RepositoryDataError(f"{field} deve ser finito")
+    return parsed
+
+
+def _nullable_decimal(payload: Mapping[str, object], field: str) -> Decimal | None:
+    if _required(payload, field) is None:
+        return None
+    return _decimal(payload, field)
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,3 +254,59 @@ class AssetRecord:
             created_at=_datetime(payload, "created_at"),
             updated_at=_datetime(payload, "updated_at"),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderSymbolRecord:
+    id: UUID
+    asset_id: UUID
+    provider: str
+    provider_symbol: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> "ProviderSymbolRecord":
+        return cls(_uuid(payload, "id"), _uuid(payload, "asset_id"), _text(payload, "provider"), _text(payload, "provider_symbol"), _boolean(payload, "is_active"), _datetime(payload, "created_at"), _datetime(payload, "updated_at"))
+
+
+@dataclass(frozen=True, slots=True)
+class MarketQuoteRecord:
+    id: UUID
+    asset_id: UUID
+    provider: str
+    provider_symbol: str
+    price: Decimal
+    currency_code: str
+    observed_at: datetime
+    received_at: datetime
+    quality: str
+    created_at: datetime
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> "MarketQuoteRecord":
+        return cls(_uuid(payload, "id"), _uuid(payload, "asset_id"), _text(payload, "provider"), _text(payload, "provider_symbol"), _decimal(payload, "price"), _text(payload, "currency_code"), _datetime(payload, "observed_at"), _datetime(payload, "received_at"), _text(payload, "quality"), _datetime(payload, "created_at"))
+
+
+@dataclass(frozen=True, slots=True)
+class MarketCandleRecord:
+    id: UUID
+    asset_id: UUID
+    provider: str
+    provider_symbol: str
+    interval: str
+    observed_at: datetime
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    volume: Decimal | None
+    adjusted_close: Decimal | None
+    received_at: datetime
+    quality: str
+    created_at: datetime
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> "MarketCandleRecord":
+        return cls(_uuid(payload, "id"), _uuid(payload, "asset_id"), _text(payload, "provider"), _text(payload, "provider_symbol"), _text(payload, "interval"), _datetime(payload, "observed_at"), _decimal(payload, "open"), _decimal(payload, "high"), _decimal(payload, "low"), _decimal(payload, "close"), _nullable_decimal(payload, "volume"), _nullable_decimal(payload, "adjusted_close"), _datetime(payload, "received_at"), _text(payload, "quality"), _datetime(payload, "created_at"))

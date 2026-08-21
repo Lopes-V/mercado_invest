@@ -39,13 +39,13 @@ O market é obrigatório; quando há exchange, ela deve pertencer ao mesmo marke
 Assets não são `market_quotes`, posições de carteira ou provider symbols; preços, candles, carteira e mapeamentos de providers permanecem fora desta tabela. Não há seeds. A migration de segurança habilita RLS e não cria policies de usuário nesta fase; a service role permanece somente no backend.
 
 ### asset_provider_symbols
-Mapeamento entre ativo interno e ticker utilizado pelos providers.
+Mapeamento canônico entre ativo interno e ticker utilizado por provider, com unicidade por `(asset_id, provider)` e `(provider, provider_symbol)`.
 
 ### market_quotes
-Cotações.
+Cotações auditáveis do provider: preço `numeric(38,18)`, moeda reportada externamente, timestamps observado/recebido e quality avaliada. A moeda observada permanece texto validado, sem FK para o catálogo canônico.
 
 ### market_candles
-Histórico OHLCV.
+Histórico OHLCV com valores `numeric(38,18)`, intervalo normalizado, checks OHLC e quality avaliada. As três tabelas Market Data foram implementadas pela migration remota `20260821194749_create_market_data_tables`. Elas usam RLS deny-by-default, não possuem policies, anon/authenticated/PUBLIC não têm grants e service_role possui somente `SELECT`, `INSERT`, `UPDATE` e `DELETE`.
 
 ### fx_rates
 Câmbio.

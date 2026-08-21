@@ -2,15 +2,15 @@
 
 ## Etapa atual
 
-ETAPA 3 — Market Data
+ETAPA 3 — Market Data (CONCLUÍDA)
 
 ## Tarefa atual
 
-3.2 — quality/validation engine
+Próxima etapa planejada: ETAPA 4 — Automation / Jobs
 
 ## Status
 
-EM ANDAMENTO
+CONCLUÍDA
 
 ## Etapa 1 concluída
 
@@ -381,11 +381,11 @@ Construir uma camada de dados de mercado independente de provider, capaz de cons
 
 - [x] 3.1 contratos e modelos normalizados
 - [x] 3.2 quality/validation engine
-- [ ] 3.3 infraestrutura HTTP de providers
-- [ ] 3.4 primeiro provider brasileiro
-- [ ] 3.5 persistência de Market Data
-- [ ] 3.6 ingestion service
-- [ ] 3.7 integração E2E
+- [x] 3.3 infraestrutura HTTP de providers
+- [x] 3.4 primeiro provider brasileiro
+- [x] 3.5 persistência de Market Data
+- [x] 3.6 ingestion service
+- [x] 3.7 integração E2E
 
 ### 3.1 — contratos e modelos normalizados
 
@@ -471,3 +471,80 @@ Revisão externa confirmou:
 - `OUTLIER` depende de referência explícita;
 - `Decimal` usado em cálculos;
 - nenhuma decisão financeira implementada.
+
+### 3.3 — infraestrutura HTTP de providers
+
+- [x] timeout explícito
+- [x] redirects desabilitados
+- [x] retry determinístico para GET
+- [x] JSON com Decimal
+- [x] lifecycle explícito
+- [x] testes unitários
+
+## Gate 3.3
+
+Status: ✅ APROVADA
+
+### 3.4 — primeiro provider brasileiro
+
+- [x] BRAPI V2 quote/history/tickers
+- [x] token opcional por Authorization header
+- [x] ticker rename rejeitado
+- [x] parsing Decimal e timestamps UTC
+- [x] market status como capability error
+- [x] testes unitários e live opt-in
+
+## Gate 3.4
+
+Status: ✅ APROVADA
+
+### 3.5 — persistência Market Data
+
+- [x] migration local com tabelas, constraints, RLS e grants
+- [x] records e repositories locais
+- [x] testes locais
+- [x] migration/validação remota
+- [x] RLS, grants e ausência de policies confirmados remotamente
+- [x] security/performance advisors revisados remotamente
+
+## Gate 3.5
+
+Status: ✅ APROVADA
+
+### 3.6 — ingestion service
+
+- [x] orchestration por injeção de dependências
+- [x] quality antes da persistência
+- [x] resultados rastreáveis e testes unitários
+- [x] integração real de banco e propagação de erros validada
+
+## Gate 3.6
+
+Status: ✅ APROVADA
+
+### 3.7 — integração E2E
+
+- [x] smoke BRAPI live opt-in
+- [x] integração real de banco opt-in
+- [x] E2E completo BRAPI, Quality Engine e Supabase opt-in
+- [x] cleanup estrito por IDs temporários
+
+## Gate 3.7
+
+Status: ✅ APROVADA
+
+## Gate da Etapa 3
+
+Status: ✅ APROVADA
+
+A revisão externa final confirmou:
+
+- transporte HTTP validado;
+- BRAPI unitário e live validados;
+- Quality Engine antes da persistência;
+- migration aplicada remotamente;
+- RLS e menor privilégio validados;
+- repositories e ingestion Market Data validados;
+- DB integration e Full E2E reais validados;
+- cleanup por IDs exatos validado;
+- nenhuma secret exposta.

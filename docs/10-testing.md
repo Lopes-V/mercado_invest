@@ -42,3 +42,17 @@ python -m pytest tests/integration/test_domain_persistence.py -vv
 ```
 
 Ela requer migrations aplicadas e credenciais de backend já presentes no ambiente; os dados temporários são únicos e o cleanup usa somente os UUIDs criados pelo próprio teste. Um teste skipped sem a variável não valida a persistência remota. A execução remota da Etapa 2 passou, validando constraints, RLS de backend e cleanup sem dados temporários restantes.
+
+## Market Data
+
+Transporte e adapters usam `httpx.MockTransport` em testes unitários. As integrações externas de Market Data são opt-in e não convertem falhas reais em sucesso quando habilitadas:
+
+```bash
+RUN_BRAPI_INTEGRATION=1 \\
+RUN_SUPABASE_INTEGRATION=1 \\
+RUN_MARKET_DATA_DB_INTEGRATION=1 \\
+RUN_MARKET_DATA_E2E=1 \\
+python -m pytest tests/integration -vv
+```
+
+As flags controlam, respectivamente, o smoke BRAPI, a persistência de domínio, a persistência Market Data e o Full E2E. A última execução externa habilitada teve 4 testes passados e 0 skipped; a suíte normal teve 218 passed e 4 skipped.

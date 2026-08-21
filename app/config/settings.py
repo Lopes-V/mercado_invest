@@ -32,6 +32,7 @@ class Settings:
 
     telegram_bot_token: str
     telegram_allowed_user_ids: frozenset[int]
+    brapi_token: str | None = None
 
 
 def get_required_env(name: str) -> str:
@@ -42,6 +43,13 @@ def get_required_env(name: str) -> str:
             f"Variável obrigatória ausente: {name}"
         )
 
+    return value.strip()
+
+
+def get_optional_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
     return value.strip()
 
 
@@ -136,4 +144,5 @@ def get_settings() -> Settings:
         telegram_allowed_user_ids=(
             telegram_allowed_user_ids
         ),
+        brapi_token=get_optional_env("BRAPI_TOKEN"),
     )

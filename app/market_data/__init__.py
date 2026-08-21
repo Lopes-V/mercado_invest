@@ -7,11 +7,22 @@ from app.market_data.contracts import (
 )
 from app.market_data.errors import (
     MarketDataError,
+    MarketDataIngestionError,
     MarketDataQualityError,
     MarketDataValidationError,
     ProviderCapabilityError,
     ProviderError,
+    ProviderHttpError,
+    ProviderRateLimitError,
+    ProviderResponseError,
+    ProviderTransportError,
     QualityPolicyError,
+)
+from app.market_data.http import ProviderHttpClient, RetryPolicy
+from app.market_data.ingestion import (
+    HistoryIngestionResult,
+    MarketDataIngestionService,
+    QuoteIngestionResult,
 )
 from app.market_data.models import (
     Candle,
@@ -29,15 +40,20 @@ from app.market_data.quality import (
     QualityIssueCode,
     QualityPolicy,
 )
+from app.market_data.providers import BrapiProvider
 
 
 __all__ = [
     "AssetSearchRequest",
+    "BrapiProvider",
     "Candle",
     "CandleInterval",
     "DataQuality",
     "HistoryRequest",
+    "HistoryIngestionResult",
     "MarketDataError",
+    "MarketDataIngestionError",
+    "MarketDataIngestionService",
     "MarketDataQualityError",
     "MarketDataProvider",
     "MarketDataValidationError",
@@ -47,6 +63,11 @@ __all__ = [
     "ProviderAsset",
     "ProviderCapabilityError",
     "ProviderError",
+    "ProviderHttpClient",
+    "ProviderHttpError",
+    "ProviderRateLimitError",
+    "ProviderResponseError",
+    "ProviderTransportError",
     "QualityAssessment",
     "QualityEngine",
     "QualityIssue",
@@ -54,5 +75,7 @@ __all__ = [
     "QualityPolicy",
     "QualityPolicyError",
     "Quote",
+    "QuoteIngestionResult",
     "QuoteRequest",
+    "RetryPolicy",
 ]

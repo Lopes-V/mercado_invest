@@ -64,7 +64,7 @@ Os repositories do domínio recebem `supabase.Client` por injeção de dependên
 
 ## Market Data
 
-O core `app.market_data` define contratos e modelos normalizados sem depender de providers concretos, HTTP, Supabase, Telegram ou IA. O fluxo de dados é Provider Adapter → Normalized Model → Quality Engine → Persistence; adapters futuros traduzirão payloads externos antes da avaliação determinística de qualidade.
+O core `app.market_data` define contratos e modelos normalizados sem depender de Supabase, Telegram ou IA. O fluxo é Provider HTTP Transport → Provider Adapter → Normalized Model → Quality Engine → Persistence. `MarketDataIngestionService` recebe essas dependências por injeção e não cria clients, providers ou repositories internamente.
 
 ## Mercados
 A arquitetura deve suportar:

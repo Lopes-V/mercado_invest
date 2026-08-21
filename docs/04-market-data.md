@@ -53,6 +53,16 @@ A policy configura as idades máximas de quotes, candles e status, a tolerância
 
 `VALID` significa somente que nenhuma regra habilitada encontrou problema. Não prova que o preço é verdadeiro, não garante resultado financeiro e não constitui recomendação.
 
+## Transporte, provider e ingestão
+
+`ProviderHttpClient` fornece somente transporte HTTP/JSON síncrono: timeout explícito, redirects desabilitados, retry determinístico de GET para falhas transitórias e parsing de números JSON decimais com `Decimal`. Tokens seguem exclusivamente no header `Authorization` e nunca em URL ou exceções.
+
+O adapter BRAPI usa os endpoints V2 `/api/v2/stocks/quote`, `/api/v2/stocks/historical` e `/api/v2/tickers`. Renomes ou divergências de ticker interrompem a operação para reavaliação do mapping; não há alteração silenciosa de identidade. O histórico exige intervalo explícito e preserva o instante fornecido pela BRAPI como `Candle.timestamp` UTC. Market status não é inferido: a capability não é suportada pelo provider.
+
+`MarketDataIngestionService` recebe provider, QualityEngine e repositories por injeção. Ele resolve o mapping, normaliza, avalia e só então persiste; inclusive dados stale, incomplete, outlier ou invalid são auditáveis. Dados sem quality avaliada não são persistidos.
+
+O Full E2E opt-in valida o pipeline real BRAPI → modelos normalizados (`quality=None`) → Quality Engine → Supabase e o cleanup por IDs temporários exatos. Nenhum provider, engine ou ingestion inventa cotação, candle, referência de outlier ou market status.
+
 ## Regra
 
 Dados `INVALID` nunca podem chegar à IA. Payloads de providers passam primeiro pelo adapter, modelos normalizados, qualidade e persistência; nunca entram diretamente na IA.
