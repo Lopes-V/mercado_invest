@@ -22,6 +22,24 @@ mínima, hit-rate >= 50% e retorno futuro médio positivo, o resultado é
 Isso reduz, mas não elimina, overfitting. Resultado histórico não garante retorno
 futuro.
 
+## Robustez e promoção
+
+Os cortes são globais para todos os ativos elegíveis: um outcome não pode cruzar
+o limite entre treino, validação ou holdout. Depois de selecionada, uma regra é
+avaliada com custo round-trip em bps, concentração por ativo, distribuição mensal
+e bootstrap determinístico. Esses diagnósticos não recalibram thresholds.
+
+`CALIBRATION_RELEASE_READY` representa somente a evidência histórica. A policy
+aprovada deve ser congelada em uma nova versão e observada em shadow mode, sem
+Telegram ou trading. `PRODUCTION_READY` só pode ser verdadeiro após evidência
+futura realizada, retorno líquido positivo e habilitação operacional explícita.
+
+Para congelar um relatório já aprovado sem alterar GitHub Variables:
+
+```bash
+python -m app.freeze_opportunity_policy --report calibration.json --policy-version candidate-v1
+```
+
 ## Métricas candidatas
 
 Somente métricas comparáveis entre ativos entram na busca inicial:

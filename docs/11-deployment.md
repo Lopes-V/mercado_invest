@@ -14,7 +14,7 @@ O Dockerfile continua usando usuário não-root e `CMD ["python", "-m", "app.wor
 
 ## GitHub Actions gratuito
 
-`.github/workflows/automation.yml` executa a cada 30 minutos e chama `python -m app.run_once`. O job só roda automaticamente quando a repository variable `AUTOMATION_ENABLED=true` estiver configurada.
+`.github/workflows/automation.yml` executa a cada 30 minutos e chama `python -m app.run_once`. Coleta/shadow podem ser habilitados por `SHADOW_MODE_ENABLED=true`; alertas exigem simultaneamente `AUTOMATION_ENABLED=true` e `PRODUCTION_READY=true`.
 
 Credenciais devem ficar em GitHub Actions Secrets:
 
@@ -35,6 +35,9 @@ Configuração não secreta deve ficar em Repository Variables:
 - `OPPORTUNITY_MINIMUM_CATEGORIES`
 - `OPPORTUNITY_MAX_AI_WEIGHT`
 - `ALERT_COOLDOWN_SECONDS`
+- `AUTOMATION_ENABLED`
+- `PRODUCTION_READY`
+- `SHADOW_MODE_ENABLED`
 
 ## Ordem por rodada
 

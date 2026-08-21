@@ -93,6 +93,8 @@ class AutomatedInvestmentPipelineJob:
         interval: CandleInterval,
         lookback: timedelta,
         analysis_period: int,
+        production_ready: bool = False,
+        automation_enabled: bool = False,
     ) -> None:
         if not isinstance(provider_name, str) or not provider_name.strip():
             raise ValueError("provider_name não pode ser vazio")
@@ -122,6 +124,8 @@ class AutomatedInvestmentPipelineJob:
         self._interval = interval
         self._lookback = lookback
         self._analysis_period = analysis_period
+        self._production_ready = production_ready
+        self._automation_enabled = automation_enabled
         ensure_job_name(self.name)
 
     @property
@@ -232,6 +236,8 @@ class AutomatedInvestmentPipelineJob:
                 score=assessment.score,
                 factors=ai_response.positive_factors,
                 risks=ai_response.risks,
+                production_ready=self._production_ready,
+                automation_enabled=self._automation_enabled,
             )
             processed += 1
 

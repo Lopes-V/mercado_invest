@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -33,6 +33,8 @@ from app.market_data.errors import ProviderError, ProviderHttpError
 from app.market_data.http import ProviderHttpClient
 from app.market_data.models import Candle, CandleInterval
 from app.market_data.providers.brapi import BrapiProvider
+from app.opportunity import OpportunityPolicy
+from app.policy_lifecycle import build_robustness_report
 
 
 _HISTORY_FALLBACK_DAYS = (365, 180, 90, 30)
@@ -165,6 +167,18 @@ def partition_report(
     }
 
 
+def json_safe(value: object) -> object:
+    """Convert audit report values to JSON without changing numeric semantics."""
+
+    if isinstance(value, dict):
+        return {str(key): json_safe(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [json_safe(item) for item in value]
+    if isinstance(value, (Decimal, UUID, datetime)):
+        return str(value)
+    return value
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Calibra regras de oportunidade em walk-forward com holdout final."
@@ -176,6 +190,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--train-ratio", default="0.60")
     parser.add_argument("--validation-ratio", default="0.20")
     parser.add_argument("--min-signals", type=int, default=8)
+    parser.add_argument("--round-trip-cost-bps", default="20")
+    parser.add_argument("--bootstrap-seed", type=int, default=0)
+    parser.add_argument("--bootstrap-samples", type=int, default=1000)
+    parser.add_argument("--policy-version", default="calibration-candidate")
     parser.add_argument("--max-assets", type=int, default=5)
     parser.add_argument(
         "--symbols",
@@ -205,6 +223,12 @@ def main() -> None:
         validation_ratio=Decimal(args.validation_ratio),
         min_signals=args.min_signals,
     )
+    try:
+        round_trip_cost_bps = Decimal(args.round_trip_cost_bps)
+    except Exception as exc:
+        raise SystemExit("--round-trip-cost-bps deve ser Decimal") from exc
+    if not round_trip_cost_bps.is_finite() or round_trip_cost_bps < 0:
+        raise SystemExit("--round-trip-cost-bps deve ser Decimal não negativo")
 
     settings = get_settings()
     client = create_supabase_client(settings)
@@ -283,6 +307,32 @@ def main() -> None:
             "Amostra histórica global insuficiente para treino, validação e holdout"
         )
     result = calibrate_partitions(partitions, config=config)
+    robustness = None
+    if result.selected is not None:
+        frozen_candidate = OpportunityPolicy(
+            version=args.policy_version,
+            rules=result.selected.rules,
+            minimum_categories=2,
+            max_ai_weight=Decimal("0"),
+            max_age=timedelta(minutes=1),
+        )
+        raw_robustness = asdict(build_robustness_report(
+            partitions.test,
+            policy=frozen_candidate,
+            round_trip_cost_bps=round_trip_cost_bps,
+            bootstrap_seed=args.bootstrap_seed,
+            bootstrap_samples=args.bootstrap_samples,
+        ))
+        for field in ("by_asset", "signals_by_asset", "signal_share_by_asset"):
+            raw_robustness[field] = {
+                symbols_by_asset.get(asset_id, str(asset_id)): value
+                for asset_id, value in raw_robustness[field].items()
+            }
+        raw_robustness["top_3_assets_by_signals"] = [
+            (symbols_by_asset.get(asset_id, str(asset_id)), count)
+            for asset_id, count in raw_robustness["top_3_assets_by_signals"]
+        ]
+        robustness = json_safe(raw_robustness)
     report = {
         "methodology": {
             "provider": "brapi",
@@ -296,6 +346,7 @@ def main() -> None:
                 Decimal("1") - config.train_ratio - config.validation_ratio
             ),
             "min_signals_per_partition": config.min_signals,
+            "round_trip_cost_bps": str(round_trip_cost_bps),
             "ai_used": False,
             "telegram_used": False,
             "trading_used": False,
@@ -306,14 +357,20 @@ def main() -> None:
             ),
         },
         "result": result_to_dict(result),
+        "robustness_report": robustness,
+        "status": {
+            "calibration_release_ready": result.release_ready,
+            "production_ready": False,
+            "production_ready_reason": "future_shadow_evidence_required",
+        },
     }
 
-    print(json.dumps(report, indent=2, ensure_ascii=False))
+    print(json.dumps(report, indent=2, ensure_ascii=False, default=str))
 
     if args.output:
         output = Path(args.output)
         output.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+            json.dumps(report, indent=2, ensure_ascii=False, default=str) + "\n",
             encoding="utf-8",
         )
         print(f"Relatório salvo em: {output}")

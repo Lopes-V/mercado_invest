@@ -45,6 +45,9 @@ class Settings:
     market_history_candle_interval: str = "1d"
 
     automated_pipeline_enabled: bool = False
+    automation_enabled: bool = False
+    shadow_mode_enabled: bool = False
+    production_ready: bool = False
     automated_pipeline_interval_seconds: int = 1800
     automated_pipeline_providers: tuple[str, ...] = ("brapi", "twelve_data")
     automated_pipeline_candle_interval: str = "1d"
@@ -201,6 +204,9 @@ def get_settings() -> Settings:
         automated_pipeline_enabled=_optional_bool(
             "AUTOMATED_PIPELINE_ENABLED", False
         ),
+        automation_enabled=_optional_bool("AUTOMATION_ENABLED", False),
+        shadow_mode_enabled=_optional_bool("SHADOW_MODE_ENABLED", False),
+        production_ready=_optional_bool("PRODUCTION_READY", False),
         automated_pipeline_interval_seconds=_positive_int(
             "AUTOMATED_PIPELINE_INTERVAL_SECONDS", 1800
         ),

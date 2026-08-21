@@ -229,6 +229,8 @@ def build_application(
                             days=settings.automated_pipeline_lookback_days
                         ),
                         analysis_period=settings.automated_pipeline_analysis_period,
+                        production_ready=settings.production_ready,
+                        automation_enabled=settings.automation_enabled,
                     ),
                     pipeline_schedule,
                 )

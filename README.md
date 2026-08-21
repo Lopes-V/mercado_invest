@@ -31,7 +31,11 @@ O repositório suporta:
 - `python -m app.run_once` para execução agendada curta;
 - `.github/workflows/automation.yml` para automação gratuita via GitHub Actions a cada 30 minutos.
 
-A automação só é ativada com `AUTOMATED_PIPELINE_ENABLED=true`. Regras financeiras não são hardcoded: `OPPORTUNITY_RULES_JSON` e `OPPORTUNITY_POLICY_VERSION` são obrigatórios quando o pipeline automático está ativo.
+A automação só coleta/análisa quando `AUTOMATED_PIPELINE_ENABLED=true`. Envio de Telegram exige adicionalmente `AUTOMATION_ENABLED=true` e `PRODUCTION_READY=true`; calibração histórica por si só nunca libera produção. Regras financeiras não são hardcoded: `OPPORTUNITY_RULES_JSON` e `OPPORTUNITY_POLICY_VERSION` são obrigatórios quando o pipeline automático está ativo.
+
+## Lifecycle de policy
+
+Uma calibração usa treino, validação e holdout cronológicos globais. A regra aprovada é avaliada com custo round-trip, concentração por ativo, distribuição mensal e bootstrap determinístico antes de ser congelada por versão. `CALIBRATION_RELEASE_READY` significa apenas que o holdout histórico passou; `PRODUCTION_READY` exige evidência futura registrada em shadow mode. Shadow mode nunca envia Telegram nem executa trades.
 
 ## Mercados
 - Brasil: BRAPI
