@@ -66,6 +66,10 @@ Os repositories do domínio recebem `supabase.Client` por injeção de dependên
 
 O core `app.market_data` define contratos e modelos normalizados sem depender de Supabase, Telegram ou IA. O fluxo é Provider HTTP Transport → Provider Adapter → Normalized Model → Quality Engine → Persistence. `MarketDataIngestionService` recebe essas dependências por injeção e não cria clients, providers ou repositories internamente.
 
+## Jobs
+
+`app.jobs` é um motor síncrono e single-process: `SchedulerService` calcula apenas o slot mais recente devido, `JobRunner` cria o ciclo auditável em `job_runs` e jobs Market Data acionam a ingestão já validada. O cálculo recebe `now` explicitamente; `run_forever` é somente um loop local com clock, sleep e parada cooperativa injetáveis, não um serviço de deploy 24/7 nem scheduler distribuído. O E2E real validou BRAPI, Supabase, idempotência do mesmo slot e cleanup exato.
+
 ## Mercados
 A arquitetura deve suportar:
 - múltiplas exchanges

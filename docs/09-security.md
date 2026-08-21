@@ -33,3 +33,7 @@ nenhuma recomendação deve ser emitida.
 
 ## Market Data
 `BRAPI_TOKEN` é opcional e exclusivo do backend. Tokens de provider são enviados somente em `Authorization: Bearer`; nunca em query string, logs ou exceções. As tabelas `asset_provider_symbols`, `market_quotes` e `market_candles` seguem RLS deny-by-default, não possuem policies e concedem à service_role somente `SELECT`, `INSERT`, `UPDATE` e `DELETE`.
+
+## Jobs
+
+`job_runs` segue o mesmo modelo de RLS deny-by-default, sem policies e com CRUD mínimo para service_role; a validação remota confirmou a ausência de privilégios adicionais. O runner não persiste headers, tokens, `.env` ou traceback; mensagens operacionais redigem tokens Bearer e atribuições usuais de secret.

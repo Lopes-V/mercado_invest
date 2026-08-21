@@ -32,6 +32,15 @@ class ProviderSymbolRepository:
         query = self._client.table("asset_provider_symbols").select("*").eq("provider", provider).eq("provider_symbol", provider_symbol)
         return read_one_or_none(query, operation="get provider symbol by provider and symbol", parser=ProviderSymbolRecord.from_payload)
 
+    def list_active_by_provider(self, provider: str) -> tuple[ProviderSymbolRecord, ...]:
+        if not isinstance(provider, str) or not provider.strip():
+            raise ValueError("provider não pode ser vazio")
+        response = self._client.table("asset_provider_symbols").select("*").eq("provider", provider).eq("is_active", True).order("provider_symbol", desc=False).execute()
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list):
+            raise RepositoryDataError("list active provider symbols retornou dados inválidos")
+        return tuple(ProviderSymbolRecord.from_payload(row) for row in rows)
+
 
 class MarketQuoteRepository:
     def __init__(self, client: Client) -> None:

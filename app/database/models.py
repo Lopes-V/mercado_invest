@@ -5,6 +5,8 @@ from decimal import Decimal, InvalidOperation
 from math import isfinite
 from uuid import UUID
 
+from app.jobs.models import JobRunStatus, JobTrigger
+
 
 class RepositoryDataError(ValueError):
     """Raised when a Supabase response does not match the persistence contract."""
@@ -108,6 +110,19 @@ def _datetime(payload: Mapping[str, object], field: str) -> datetime:
         )
 
     return parsed
+
+
+def _nullable_datetime(
+    payload: Mapping[str, object], field: str
+) -> datetime | None:
+    value = _required(payload, field)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise RepositoryDataError(
+            f"{field} deve ser timestamp ISO 8601 em texto ou nulo"
+        )
+    return _datetime(payload, field)
 
 
 def _decimal(payload: Mapping[str, object], field: str) -> Decimal:
@@ -310,3 +325,43 @@ class MarketCandleRecord:
     @classmethod
     def from_payload(cls, payload: Mapping[str, object]) -> "MarketCandleRecord":
         return cls(_uuid(payload, "id"), _uuid(payload, "asset_id"), _text(payload, "provider"), _text(payload, "provider_symbol"), _text(payload, "interval"), _datetime(payload, "observed_at"), _decimal(payload, "open"), _decimal(payload, "high"), _decimal(payload, "low"), _decimal(payload, "close"), _nullable_decimal(payload, "volume"), _nullable_decimal(payload, "adjusted_close"), _datetime(payload, "received_at"), _text(payload, "quality"), _datetime(payload, "created_at"))
+
+
+@dataclass(frozen=True, slots=True)
+class JobRunRecord:
+    id: UUID
+    job_name: str
+    run_key: str
+    trigger_type: JobTrigger
+    scheduled_for: datetime
+    status: JobRunStatus
+    correlation_id: UUID
+    started_at: datetime
+    finished_at: datetime | None
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> "JobRunRecord":
+        try:
+            trigger = JobTrigger(_text(payload, "trigger_type"))
+            status = JobRunStatus(_text(payload, "status"))
+        except ValueError as exc:
+            raise RepositoryDataError("job run possui enum inválido") from exc
+        return cls(
+            id=_uuid(payload, "id"),
+            job_name=_text(payload, "job_name"),
+            run_key=_text(payload, "run_key"),
+            trigger_type=trigger,
+            scheduled_for=_datetime(payload, "scheduled_for"),
+            status=status,
+            correlation_id=_uuid(payload, "correlation_id"),
+            started_at=_datetime(payload, "started_at"),
+            finished_at=_nullable_datetime(payload, "finished_at"),
+            error_code=_nullable_text(payload, "error_code"),
+            error_message=_nullable_text(payload, "error_message"),
+            created_at=_datetime(payload, "created_at"),
+            updated_at=_datetime(payload, "updated_at"),
+        )

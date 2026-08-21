@@ -83,6 +83,7 @@ O advisor remoto sinalizou `assets_exchange_market_fk` como `unindexed_foreign_k
 ### system_logs
 
 ### job_runs
+Histórico auditável de cada execução de job. `run_key` é único e protege a idempotência operacional; para jobs agendados ele deriva deterministicamente de `job_name` e do slot UTC. `correlation_id` também é único e conecta logs, contexto e persistência. A migration remota `20260821202531_create_job_runs.sql` define status, triggers, coerência temporal, RLS deny-by-default, nenhuma policy e CRUD mínimo para service_role; sua aplicação e validação remotas foram concluídas.
 
 ### system_settings
 

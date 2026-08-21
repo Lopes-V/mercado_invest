@@ -56,3 +56,14 @@ python -m pytest tests/integration -vv
 ```
 
 As flags controlam, respectivamente, o smoke BRAPI, a persistência de domínio, a persistência Market Data e o Full E2E. A última execução externa habilitada teve 4 testes passados e 0 skipped; a suíte normal teve 218 passed e 4 skipped.
+
+## Jobs
+
+O core de jobs é testado sem relógio, rede ou Supabase real. As integrações futuras são opt-in:
+
+```bash
+RUN_JOBS_DB_INTEGRATION=1 python -m pytest tests/integration/test_job_runs_persistence.py -vv
+RUN_STAGE4_E2E=1 python -m pytest tests/integration/test_stage4_scheduler_e2e.py -vv
+```
+
+As duas integrações exigem a migration `job_runs` aplicada remotamente. A validação externa habilitada passou com 6 testes e 0 skipped; a suíte normal validada teve 254 passed e 6 skipped.

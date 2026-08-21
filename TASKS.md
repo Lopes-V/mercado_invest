@@ -2,11 +2,11 @@
 
 ## Etapa atual
 
-ETAPA 3 — Market Data (CONCLUÍDA)
+ETAPA 4 — Automation / Jobs (CONCLUÍDA)
 
 ## Tarefa atual
 
-Próxima etapa planejada: ETAPA 4 — Automation / Jobs
+Próxima etapa planejada: ETAPA 5 — Portfolio
 
 ## Status
 
@@ -547,4 +547,118 @@ A revisão externa final confirmou:
 - repositories e ingestion Market Data validados;
 - DB integration e Full E2E reais validados;
 - cleanup por IDs exatos validado;
+- nenhuma secret exposta.
+
+## Etapa 4 — Automation / Jobs
+
+### Tarefas
+
+- [x] 4.1 scheduling core
+- [x] 4.2 job_runs persistence
+- [x] 4.3 job runner / idempotency
+- [x] 4.4 Market Data jobs
+- [x] 4.5 scheduler service
+- [x] 4.6 failure handling / observability
+- [x] 4.7 integration E2E
+
+### 4.1 — scheduling core
+
+- [x] Job protocol síncrono
+- [x] JobContext UTC e explícito
+- [x] JobResult tipado
+- [x] IntervalSchedule determinístico
+- [x] sem relógio oculto no cálculo de slot
+- [x] testes unitários
+
+## Gate 4.1
+
+Status: ✅ APROVADA
+
+### 4.2 — job_runs persistence
+
+- [x] migration local `job_runs`
+- [x] constraints, idempotência e índice justificado
+- [x] RLS deny-by-default e grants mínimos no SQL
+- [x] JobRunRecord e JobRunRepository
+- [x] testes de migration e repository
+- [x] migration/validação remota
+
+## Gate 4.2
+
+Status: ✅ APROVADA
+
+### 4.3 — job runner / idempotency
+
+- [x] run key agendado determinístico
+- [x] lifecycle RUNNING para terminal
+- [x] duplicate scheduled run não reexecuta job
+- [x] erro sanitizado e propagado
+- [x] correlation ID preservado
+- [x] testes unitários
+
+## Gate 4.3
+
+Status: ✅ APROVADA
+
+### 4.4 — Market Data jobs
+
+- [x] listagem ativa por provider ordenada
+- [x] MarketQuoteCollectionJob fail-fast
+- [x] MarketHistoryCollectionJob com janela explícita
+- [x] sem símbolos, providers ou mercados hardcoded
+- [x] testes unitários
+
+## Gate 4.4
+
+Status: ✅ APROVADA
+
+### 4.5 — scheduler service
+
+- [x] latest-slot-only policy
+- [x] ordem determinística de registro
+- [x] falha isolada por ScheduledJob
+- [x] run_forever local com clock, sleep e parada injetáveis
+- [x] testes unitários
+
+## Gate 4.5
+
+Status: ✅ APROVADA
+
+### 4.6 — failure handling / observability
+
+- [x] eventos de lifecycle no logger existente
+- [x] correlation ID, job name, slot e run ID nos eventos
+- [x] sanitização limitada de Bearer e atribuições de token/secret
+- [x] sem traceback no banco
+- [x] limitações de single-process documentadas
+
+## Gate 4.6
+
+Status: ✅ APROVADA
+
+### 4.7 — integration E2E
+
+- [x] teste real opt-in de job_runs criado
+- [x] Full E2E Stage 4 opt-in criado
+- [x] migration remota aplicada
+- [x] integrações reais executadas
+
+## Gate 4.7
+
+Status: ✅ APROVADA
+
+## Gate técnico da Etapa 4
+
+Status: ✅ APROVADA
+
+A revisão externa final confirmou:
+
+- scheduling determinístico e latest-slot-only;
+- run_key persistido e idempotência validada;
+- correlation ID e lifecycle RUNNING para terminal;
+- Market Data jobs e SchedulerService;
+- integração real BRAPI e Supabase;
+- repetição do mesmo slot sem reexecução;
+- cleanup por IDs exatos;
+- RLS e menor privilégio validados;
 - nenhuma secret exposta.

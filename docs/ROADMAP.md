@@ -18,13 +18,15 @@ Status: ✅
 
 ## Etapa 3
 Market Data
-Status: EM ANDAMENTO
+Status: ✅
 
 ## Etapa 4
 Automação
+Status: ✅
 
 ## Etapa 5
 Carteira
+Status: NÃO INICIADA
 
 ## Etapa 6
 Indicadores
