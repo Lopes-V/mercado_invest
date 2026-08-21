@@ -2,15 +2,15 @@
 
 ## Etapa atual
 
-ETAPA 2 — Supabase
+ETAPA 3 — Market Data
 
 ## Tarefa atual
 
-2.8 — persistence tests
+3.1 — contratos e modelos normalizados
 
 ## Status
 
-CONCLUÍDA
+EM ANDAMENTO
 
 ## Etapa 1 concluída
 
@@ -370,3 +370,56 @@ Status: ✅ APROVADA
 - [x] suíte completa passando
 - [x] nenhuma migration antiga teve SQL alterado
 - [x] histórico local/remoto reconciliado por filename
+
+## Etapa 3 — Market Data
+
+### Objetivo
+
+Construir uma camada de dados de mercado independente de provider, capaz de consumir múltiplos mercados e fontes sem contaminar o domínio com payloads específicos de APIs externas.
+
+### Tarefas
+
+- [ ] 3.1 contratos e modelos normalizados
+- [ ] 3.2 quality/validation engine
+- [ ] 3.3 infraestrutura HTTP de providers
+- [ ] 3.4 primeiro provider brasileiro
+- [ ] 3.5 persistência de Market Data
+- [ ] 3.6 ingestion service
+- [ ] 3.7 integração E2E
+
+### 3.1 — contratos e modelos normalizados
+
+#### Critérios de conclusão
+
+- [x] tipos financeiros usam Decimal
+- [x] timestamps timezone-aware
+- [x] timestamps normalizados para UTC
+- [x] Quote modelado
+- [x] Candle modelado
+- [x] MarketStatus modelado
+- [x] ProviderAsset modelado
+- [x] requests explícitos
+- [x] DataQuality definido
+- [x] MarketDataProvider definido
+- [x] provider não depende de Supabase
+- [x] nenhum provider concreto implementado
+- [x] nenhum float financeiro
+- [x] nenhuma persistência implementada
+- [x] nenhuma chamada HTTP implementada
+- [x] testes unitários
+- [x] documentação atualizada
+- [x] suíte completa passando
+- [x] git diff --check limpo
+
+### Revisão externa 3.1
+
+Blockers encontrados:
+
+- qualidade estava sendo exigida antes do Quality Engine;
+- MarketStatusRequest possuía somente UUID interno, insuficiente para routing do provider.
+
+Depois da correção:
+
+## Gate 3.1
+
+Status: ⚠ AGUARDANDO NOVA REVISÃO EXTERNA

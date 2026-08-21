@@ -18,6 +18,7 @@ Status: ✅
 
 ## Etapa 3
 Market Data
+Status: EM ANDAMENTO
 
 ## Etapa 4
 Automação
