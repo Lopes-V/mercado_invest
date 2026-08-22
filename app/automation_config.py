@@ -39,14 +39,20 @@ def build_quality_policy(settings: Settings) -> QualityPolicy:
         settings.automated_pipeline_candle_interval,
         field="AUTOMATED_PIPELINE_CANDLE_INTERVAL",
     )
+    shadow_interval = _interval(
+        settings.shadow_candle_interval,
+        field="SHADOW_CANDLE_INTERVAL",
+    )
     max_lookback_days = max(
         settings.market_history_lookback_days,
         settings.automated_pipeline_lookback_days,
+        settings.shadow_lookback_days,
     )
     candle_age = timedelta(days=max_lookback_days + 2)
     candle_max_age = {
         market_interval: candle_age,
         pipeline_interval: candle_age,
+        shadow_interval: candle_age,
     }
     quote_age = timedelta(
         seconds=max(600, settings.market_quotes_interval_seconds * 2)
@@ -149,6 +155,8 @@ def validate_automation_settings(settings: Settings) -> None:
         raise ValueError("GEMINI_API_KEY é obrigatória para automação")
     if not settings.gemini_model:
         raise ValueError("GEMINI_MODEL é obrigatório para automação")
+    if not settings.telegram_bot_token:
+        raise ValueError("TELEGRAM_BOT_TOKEN é obrigatória para automação")
     if len(settings.telegram_allowed_user_ids) != 1:
         raise ValueError(
             "automação exige exatamente um TELEGRAM_ALLOWED_USER_IDS; "
@@ -169,3 +177,13 @@ def validate_automation_settings(settings: Settings) -> None:
             "TWELVE_DATA_API_KEY é obrigatória quando twelve_data está na automação"
         )
     build_opportunity_policy(settings)
+
+
+def validate_shadow_settings(settings: Settings) -> None:
+    """Shadow is deterministic and intentionally does not require Gemini/Telegram."""
+
+    if not settings.shadow_mode_enabled:
+        return
+    if not settings.shadow_policy_version:
+        raise ValueError("SHADOW_POLICY_VERSION é obrigatória para shadow mode")
+    _interval(settings.shadow_candle_interval, field="SHADOW_CANDLE_INTERVAL")

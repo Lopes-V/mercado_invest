@@ -32,13 +32,35 @@ e bootstrap determinístico. Esses diagnósticos não recalibram thresholds.
 `CALIBRATION_RELEASE_READY` representa somente a evidência histórica. A policy
 aprovada deve ser congelada em uma nova versão e observada em shadow mode, sem
 Telegram ou trading. `PRODUCTION_READY` só pode ser verdadeiro após evidência
-futura realizada, retorno líquido positivo e habilitação operacional explícita.
+futura realizada, retorno líquido positivo e amostra mínima. A habilitação
+operacional permanece separada: alertas de produção exigem também
+`AUTOMATION_ENABLED=true`.
 
 Para congelar um relatório já aprovado sem alterar GitHub Variables:
 
 ```bash
 python -m app.freeze_opportunity_policy --report calibration.json --policy-version candidate-v1
 ```
+
+## Shadow e evidência futura
+
+Com `SHADOW_MODE_ENABLED=true` e `SHADOW_POLICY_VERSION=<versão congelada>`, o
+scheduler avalia candles `VALID` com a policy persistida em
+`frozen_opportunity_policies`. Ele registra apenas sinais determinísticos em
+`shadow_predictions`; não instancia Gemini, Telegram, AlertService ou qualquer
+executor de trade. `SHADOW_FORWARD_HORIZON_DAYS` é deliberadamente um horizonte
+em dias de calendário, não uma contagem sintética de candles. O settlement usa
+o primeiro candle `VALID` com `observed_at >= outcome_due_at`.
+
+Para avaliar a policy sem alterar variáveis do GitHub:
+
+```bash
+python -m app.evaluate_production_readiness --policy-version candidate-v1
+```
+
+O comando imprime `CALIBRATION_RELEASE_READY`, métricas futuras brutas e
+líquidas, `PRODUCTION_READY` e um motivo auditável. Sem outcomes futuros
+realizados, o resultado correto é `PRODUCTION_READY=false`.
 
 ## Métricas candidatas
 

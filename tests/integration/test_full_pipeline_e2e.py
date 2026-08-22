@@ -29,6 +29,7 @@ class Candles:
     def __init__(self):self.rows=[]
     def create_many(self,items):
         self.rows=[SimpleNamespace(id=uuid4(),asset_id=x.asset_id,provider=x.provider,provider_symbol=x.provider_symbol,observed_at=x.timestamp,open=x.open,high=x.high,low=x.low,close=x.close,volume=x.volume,adjusted_close=x.adjusted_close,received_at=x.received_at,quality=x.quality.value) for x in items];return tuple(self.rows)
+    def create_many_idempotent(self,items):return self.create_many(items)
     def get_range(self,**_):return tuple(self.rows)
 class Store:
     def create(self,**p):self.payload=p;return SimpleNamespace(id=uuid4(),**p)

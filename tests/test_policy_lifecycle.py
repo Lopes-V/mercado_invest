@@ -58,18 +58,44 @@ def test_robustness_reports_cost_concentration_months_and_reproducible_bootstrap
 
 def test_historical_calibration_alone_never_makes_production_ready():
     evidence = future_evidence_from_realized(())
-    assert not production_ready(calibration_release_ready=True, policy_active=True, automation_enabled=True, evidence=evidence)
+    assert not production_ready(
+        calibration_release_ready=True,
+        policy_active=True,
+        evidence=evidence,
+    )
 
 
-def test_future_evidence_requires_net_positive_and_explicit_automation():
+def test_future_evidence_requires_net_positive_but_not_operator_enablement():
     rows = tuple(
         SimpleNamespace(asset_id=ASSET_A, predicted_at=NOW, realized_at=NOW + timedelta(days=5), gross_return=Decimal("0.01"), net_return=Decimal("0.005"))
         for _ in range(20)
     )
     evidence = future_evidence_from_realized(rows)
     gate = ProductionGatePolicy(min_future_signals=20)
-    assert production_ready(calibration_release_ready=True, policy_active=True, automation_enabled=True, evidence=evidence, gate=gate)
-    assert not production_ready(calibration_release_ready=True, policy_active=True, automation_enabled=False, evidence=evidence, gate=gate)
+    assert production_ready(
+        calibration_release_ready=True,
+        policy_active=True,
+        evidence=evidence,
+        gate=gate,
+    )
+
+
+def test_net_negative_future_evidence_blocks_policy_readiness():
+    rows = tuple(
+        SimpleNamespace(
+            asset_id=ASSET_A,
+            predicted_at=NOW,
+            realized_at=NOW + timedelta(days=5),
+            gross_return=Decimal("0.001"),
+            net_return=Decimal("-0.001"),
+        )
+        for _ in range(20)
+    )
+    assert not production_ready(
+        calibration_release_ready=True,
+        policy_active=True,
+        evidence=future_evidence_from_realized(rows),
+    )
 
 
 class ShadowRepo:
@@ -114,6 +140,53 @@ def test_shadow_prediction_is_idempotent_and_settlement_cannot_look_ahead():
     assert len(settled) == 1
     assert settled[0].gross_return == Decimal("0.1")
     assert settled[0].net_return == Decimal("0.098")
+    assert service.settle_due(now=NOW + timedelta(days=6), prices=DuePrices()) == ()
+
+
+def test_shadow_settlement_ignores_non_valid_outcome_candles():
+    repo = ShadowRepo()
+    service = ShadowService(repository=repo)
+    service.record_prediction(
+        ShadowPredictionInput(
+            policy_id=uuid4(), policy_version="frozen-v1", asset_id=ASSET_A,
+            provider="test", interval="1d", predicted_at=NOW,
+            outcome_due_at=NOW + timedelta(days=5), reference_price=Decimal("100"),
+            quality=DataQuality.VALID,
+            assessment=OpportunityAssessment(OpportunityLevel.INTERESTING, Decimal("60"), 2, ("RETURN",)),
+            metrics={"RETURN": Decimal("0.1")}, round_trip_cost_bps=Decimal("20"),
+        )
+    )
+
+    class InvalidPrices:
+        def first_price_at_or_after(self, **_kwargs):
+            return SimpleNamespace(
+                observed_at=NOW + timedelta(days=5),
+                close=Decimal("110"),
+                quality="STALE",
+            )
+
+    assert service.settle_due(now=NOW + timedelta(days=5), prices=InvalidPrices()) == ()
+    assert repo.items[0].realized_at is None
+
+
+def test_future_evidence_counts_only_realized_shadow_predictions():
+    pending = SimpleNamespace(
+        asset_id=ASSET_A,
+        predicted_at=NOW,
+        realized_at=None,
+        gross_return=None,
+        net_return=None,
+    )
+    settled = SimpleNamespace(
+        asset_id=ASSET_A,
+        predicted_at=NOW,
+        realized_at=NOW + timedelta(days=5),
+        gross_return=Decimal("0.02"),
+        net_return=Decimal("0.018"),
+    )
+    evidence = future_evidence_from_realized((pending, settled))
+    assert evidence.signals == 1
+    assert evidence.net_average_return == Decimal("0.018")
 
 
 def test_alert_is_suppressed_until_production_and_automation_gates_are_true():

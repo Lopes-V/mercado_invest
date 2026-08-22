@@ -8,7 +8,16 @@ from uuid import UUID
 
 from supabase import Client
 
-from app.database.models import _boolean, _datetime, _decimal, _nullable_datetime, _nullable_decimal, _text, _uuid
+from app.database.models import (
+    RepositoryDataError,
+    _boolean,
+    _datetime,
+    _decimal,
+    _nullable_datetime,
+    _nullable_decimal,
+    _text,
+    _uuid,
+)
 from app.database.repositories._response import create_one, read_one_or_none
 
 
@@ -26,10 +35,25 @@ class FrozenOpportunityPolicyRecord:
     created_at: datetime
     calibration_release_ready: bool
     status: str
+    metric_rules: tuple[Mapping[str, object], ...]
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, object]) -> "FrozenOpportunityPolicyRecord":
-        return cls(_uuid(payload, "id"), _text(payload, "policy_version"), _datetime(payload, "created_at"), _boolean(payload, "calibration_release_ready"), _text(payload, "status"))
+        rules = payload.get("metric_rules")
+        if (
+            not isinstance(rules, list)
+            or not rules
+            or not all(isinstance(item, Mapping) for item in rules)
+        ):
+            raise RepositoryDataError("metric_rules inválidas no frozen policy")
+        return cls(
+            _uuid(payload, "id"),
+            _text(payload, "policy_version"),
+            _datetime(payload, "created_at"),
+            _boolean(payload, "calibration_release_ready"),
+            _text(payload, "status"),
+            tuple(rules),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,9 +112,36 @@ class ShadowPredictionRepository:
     def list_pending_due(self, *, before: datetime) -> tuple[ShadowPredictionRecord, ...]:
         response = self._client.table("shadow_predictions").select("*").is_("realized_at", "null").lte("outcome_due_at", before.isoformat()).order("outcome_due_at").execute()
         data = getattr(response, "data", None)
-        if not isinstance(data, list):
-            raise ValueError("list pending shadow predictions retornou dados inválidos")
+        if not isinstance(data, list) or not all(isinstance(item, Mapping) for item in data):
+            raise RepositoryDataError("list pending shadow predictions retornou dados inválidos")
         return tuple(ShadowPredictionRecord.from_payload(item) for item in data)
+
+    def list_realized_by_policy(self, policy_id: UUID) -> tuple[ShadowPredictionRecord, ...]:
+        """Return only settled records for a frozen policy.
+
+        Filtering after typed parsing keeps the PostgREST query portable while
+        making the future-evidence boundary explicit: pending predictions never
+        count as evidence.
+        """
+
+        records = self.list_by_policy(policy_id)
+        return tuple(record for record in records if record.realized_at is not None)
+
+    def list_by_policy(self, policy_id: UUID) -> tuple[ShadowPredictionRecord, ...]:
+        """List a policy's shadow audit trail in deterministic prediction order."""
+
+        response = (
+            self._client.table("shadow_predictions")
+            .select("*")
+            .eq("policy_id", str(policy_id))
+            .order("predicted_at", desc=False)
+            .execute()
+        )
+        data = getattr(response, "data", None)
+        if not isinstance(data, list) or not all(isinstance(item, Mapping) for item in data):
+            raise RepositoryDataError("list shadow predictions retornou dados inválidos")
+        records = tuple(ShadowPredictionRecord.from_payload(item) for item in data)
+        return records
 
     def record_outcome(self, *, prediction_id: UUID, realized_at: datetime, realized_price: Decimal, gross_return: Decimal, net_return: Decimal, realized_positive: bool) -> ShadowPredictionRecord:
         response = self._client.table("shadow_predictions").update(_payload(realized_at=realized_at, realized_price=realized_price, gross_return=gross_return, net_return=net_return, realized_positive=realized_positive)).eq("id", str(prediction_id)).is_("realized_at", "null").execute()

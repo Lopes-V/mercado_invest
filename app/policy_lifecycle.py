@@ -203,16 +203,19 @@ def production_ready(
     *,
     calibration_release_ready: bool,
     policy_active: bool,
-    automation_enabled: bool,
     evidence: FutureEvidence,
     gate: ProductionGatePolicy = ProductionGatePolicy(),
 ) -> bool:
-    """Production requires approved historical and independent future evidence."""
+    """Return policy readiness from evidence, independent of operator enablement.
+
+    ``AUTOMATION_ENABLED`` is deliberately not an input: it is an operational
+    switch, never statistical evidence.  Alert execution must still require it
+    separately.
+    """
 
     return bool(
         calibration_release_ready
         and policy_active
-        and automation_enabled
         and evidence.signals >= gate.min_future_signals
         and evidence.gross_hit_rate >= gate.minimum_hit_rate
         and evidence.net_average_return > ZERO

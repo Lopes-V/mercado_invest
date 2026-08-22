@@ -15,6 +15,7 @@ def test_stage_migration_is_unique_and_secured(purpose):
 def test_policy_lifecycle_migration_has_idempotency_and_only_justified_indexes():
     matches = sorted(MIGRATIONS.glob("*_add_policy_lifecycle_shadow.sql"))
     assert len(matches) == 1
+    assert matches[0].name == "20260821235316_add_policy_lifecycle_shadow.sql"
     sql = matches[0].read_text().lower()
     assert "prediction_key text not null unique" in sql
     assert "where realized_at is null" in sql

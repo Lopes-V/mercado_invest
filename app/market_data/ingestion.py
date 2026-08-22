@@ -45,7 +45,9 @@ class MarketDataIngestionService:
         mapping = self._mapping(asset_id)
         history = self._provider.get_history(HistoryRequest(asset_id, mapping.provider_symbol, interval, start, end))
         assessments = tuple(self._quality_engine.assess_candle(candle, evaluated_at=evaluated_at) for candle in history)
-        records = self._candles.create_many(tuple(assessment.data for assessment in assessments))
+        records = self._candles.create_many_idempotent(
+            tuple(assessment.data for assessment in assessments)
+        )
         return HistoryIngestionResult(assessments=assessments, records=records)
 
     def _mapping(self, asset_id: UUID):

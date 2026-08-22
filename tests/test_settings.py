@@ -143,7 +143,7 @@ def test_missing_supabase_secret_key_is_rejected(
         get_settings()
 
 
-def test_missing_telegram_bot_token_is_rejected(
+def test_missing_telegram_bot_token_is_allowed_until_alert_automation_is_enabled(
     monkeypatch,
 ):
     set_required_env(monkeypatch)
@@ -153,11 +153,7 @@ def test_missing_telegram_bot_token_is_rejected(
         raising=False,
     )
 
-    with pytest.raises(
-        ValueError,
-        match="TELEGRAM_BOT_TOKEN",
-    ):
-        get_settings()
+    assert get_settings().telegram_bot_token is None
 
 
 def test_empty_telegram_allowed_users_is_safe():

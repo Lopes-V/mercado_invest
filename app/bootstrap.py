@@ -11,6 +11,7 @@ from app.automation_config import (
     build_opportunity_policy,
     build_quality_policy,
     validate_automation_settings,
+    validate_shadow_settings,
 )
 from app.config.settings import Settings
 from app.database.client import create_supabase_client
@@ -26,9 +27,12 @@ from app.database.repositories import (
     MarketRepository,
     OpportunityRepository,
     ProviderSymbolRepository,
+    FrozenOpportunityPolicyRepository,
+    ShadowPredictionRepository,
 )
 from app.jobs.investment_pipeline import AutomatedInvestmentPipelineJob
 from app.jobs.market_data import MarketHistoryCollectionJob, MarketQuoteCollectionJob
+from app.jobs.shadow import ShadowOpportunityPipelineJob, ShadowSettlementJob
 from app.jobs.runner import JobRunner
 from app.jobs.schedule import IntervalSchedule, ScheduledJob, SchedulerService
 from app.market_data.http import ProviderHttpClient
@@ -38,6 +42,8 @@ from app.market_data.providers.brapi import BrapiProvider
 from app.market_data.providers.twelve_data import TwelveDataProvider
 from app.market_data.quality import QualityEngine, QualityPolicy
 from app.opportunity import OpportunityEngine, OpportunityPolicy, OpportunityService
+from app.shadow import ShadowService
+from app.shadow_policy import FrozenPolicyError, load_frozen_opportunity_policy
 from app.telegram.client import TelegramClient
 
 
@@ -65,7 +71,14 @@ def build_application(
     quality_policy: QualityPolicy | None = None,
     opportunity_policy: OpportunityPolicy | None = None,
 ) -> Application:
-    validate_automation_settings(settings)
+    validate_shadow_settings(settings)
+    production_pipeline_enabled = (
+        settings.automated_pipeline_enabled
+        and settings.automation_enabled
+        and settings.production_ready
+    )
+    if production_pipeline_enabled:
+        validate_automation_settings(settings)
     quality_policy = quality_policy or build_quality_policy(settings)
 
     client = create_supabase_client(settings)
@@ -79,6 +92,8 @@ def build_application(
     ai_runs = AIRunRepository(client)
     opportunities = OpportunityRepository(client)
     alerts = AlertRepository(client)
+    frozen_policies = FrozenOpportunityPolicyRepository(client)
+    shadow_predictions = ShadowPredictionRepository(client)
     job_runs = JobRunRepository(client)
     runner = JobRunner(job_runs)
     jobs: list[ScheduledJob] = []
@@ -155,10 +170,71 @@ def build_application(
                 )
             )
 
-    if settings.automated_pipeline_enabled:
+    if settings.shadow_mode_enabled:
+        try:
+            shadow_interval = CandleInterval(settings.shadow_candle_interval)
+        except ValueError as exc:
+            raise ValueError("SHADOW_CANDLE_INTERVAL inválido") from exc
+        analysis_service = AnalysisService(
+            candles=candles,
+            engine=AnalysisEngine(),
+            analyses=analyses,
+            metrics=metrics,
+        )
+        shadow_service = ShadowService(repository=shadow_predictions)
+        shadow_schedule = IntervalSchedule(
+            timedelta(seconds=settings.shadow_interval_seconds), anchor
+        )
+        for provider_name in providers:
+            jobs.append(
+                ScheduledJob(
+                    ShadowOpportunityPipelineJob(
+                        provider_name=provider_name,
+                        policy_version=settings.shadow_policy_version or "",
+                        frozen_policies=frozen_policies,
+                        provider_symbols=symbols,
+                        candles=candles,
+                        analysis_service=analysis_service,
+                        shadow_service=shadow_service,
+                        interval=shadow_interval,
+                        lookback=timedelta(days=settings.shadow_lookback_days),
+                        analysis_period=settings.shadow_analysis_period,
+                        forward_horizon_days=settings.shadow_forward_horizon_days,
+                        round_trip_cost_bps=settings.shadow_round_trip_cost_bps,
+                    ),
+                    shadow_schedule,
+                )
+            )
+        jobs.append(
+            ScheduledJob(
+                ShadowSettlementJob(shadow_service=shadow_service, candles=candles),
+                shadow_schedule,
+            )
+        )
+
+    if production_pipeline_enabled:
         if settings.gemini_api_key is None or settings.gemini_model is None:
             raise ValueError("Gemini precisa estar configurado para automação")
-        opportunity_policy = opportunity_policy or build_opportunity_policy(settings)
+        configured_policy = opportunity_policy or build_opportunity_policy(settings)
+        frozen_record = frozen_policies.get_by_version(configured_policy.version)
+        if frozen_record is None:
+            raise ValueError("pipeline de produção requer policy congelada")
+        try:
+            frozen_policy = load_frozen_opportunity_policy(
+                frozen_record,
+                minimum_categories=settings.opportunity_minimum_categories,
+                max_ai_weight=settings.opportunity_max_ai_weight,
+                max_age=timedelta(
+                    seconds=settings.automated_pipeline_reference_max_age_seconds
+                ),
+            )
+        except FrozenPolicyError as exc:
+            raise ValueError("pipeline de produção requer policy congelada aprovada") from exc
+        if frozen_policy.rules != configured_policy.rules:
+            raise ValueError(
+                "OPPORTUNITY_RULES_JSON diverge da policy congelada configurada"
+            )
+        opportunity_policy = frozen_policy
         try:
             pipeline_interval = CandleInterval(
                 settings.automated_pipeline_candle_interval
