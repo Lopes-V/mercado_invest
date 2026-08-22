@@ -57,6 +57,7 @@ class Quotes:
 class Candles:
     def __init__(self): self.saved = []
     def create_many(self, values): self.saved.append(tuple(values)); return tuple(SimpleNamespace(quality=value.quality) for value in values)
+    def create_many_idempotent(self, values): return self.create_many(values)
 
 
 def service(provider, mapping=SimpleNamespace(provider="fake", provider_symbol="TEST")):

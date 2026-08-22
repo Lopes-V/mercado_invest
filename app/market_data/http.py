@@ -140,10 +140,12 @@ class ProviderHttpClient:
                 raise ProviderRateLimitError(
                     "provider limitou requisições",
                     status_code=response.status_code,
+                    provider_code=self._safe_provider_code(response.text),
                 )
             raise ProviderHttpError(
                 "provider respondeu com status HTTP inválido",
                 status_code=response.status_code,
+                provider_code=self._safe_provider_code(response.text),
             )
 
         raise AssertionError("loop de retry terminou inesperadamente")
@@ -169,3 +171,22 @@ class ProviderHttpClient:
             return json.loads(payload, parse_float=Decimal)
         except json.JSONDecodeError as exc:
             raise ProviderResponseError("provider retornou JSON inválido") from exc
+
+    @staticmethod
+    def _safe_provider_code(payload: str) -> str | None:
+        """Extract a provider error code without retaining response bodies."""
+
+        try:
+            body = json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(body, Mapping):
+            return None
+        code = body.get("code")
+        if (
+            isinstance(code, str)
+            and 0 < len(code) <= 64
+            and all(char.isascii() and (char.isalnum() or char in "_-") for char in code)
+        ):
+            return code
+        return None

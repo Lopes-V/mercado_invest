@@ -29,8 +29,12 @@ market data
 - policy determinística explícita
 - destinatário autorizado
 - cooldown respeitado
+- `AUTOMATION_ENABLED == true`
+- `PRODUCTION_READY == true`
 
 Dados ausentes, stale, incomplete, outlier ou invalid não avançam para Gemini/alerta.
+
+Shadow mode persiste previsões e outcomes futuros, mas não invoca `AlertService` para envio. Mesmo um backtest aprovado permanece bloqueado até o gate explícito de evidência futura liberar `PRODUCTION_READY`.
 
 ## Policy de oportunidade
 

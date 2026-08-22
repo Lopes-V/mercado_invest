@@ -10,6 +10,7 @@ from app.database.repositories.market_data import (
 )
 from app.database.repositories.portfolio import PortfolioRepository, PortfolioSnapshotRepository, PortfolioTransactionRepository
 from app.database.repositories.stage_records import AnalysisRepository, AnalysisMetricRepository, AIRunRepository, OpportunityRepository, AlertRepository, BacktestRunRepository, BacktestEventRepository, PaperAccountRepository, PaperOrderRepository, PaperTradeRepository, FixedIncomeInstrumentRepository, FixedIncomeSnapshotRepository, FixedIncomeHistoryRepository, FxRateRepository
+from app.database.repositories.policy_lifecycle import FrozenOpportunityPolicyRepository, ShadowPredictionRepository
 
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "PortfolioTransactionRepository",
     "PortfolioSnapshotRepository",
     "AnalysisRepository", "AnalysisMetricRepository", "AIRunRepository", "OpportunityRepository", "AlertRepository", "BacktestRunRepository", "BacktestEventRepository", "PaperAccountRepository", "PaperOrderRepository", "PaperTradeRepository", "FixedIncomeInstrumentRepository", "FixedIncomeSnapshotRepository", "FixedIncomeHistoryRepository", "FxRateRepository",
+    "FrozenOpportunityPolicyRepository", "ShadowPredictionRepository",
 ]

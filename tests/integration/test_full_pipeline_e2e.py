@@ -29,6 +29,7 @@ class Candles:
     def __init__(self):self.rows=[]
     def create_many(self,items):
         self.rows=[SimpleNamespace(id=uuid4(),asset_id=x.asset_id,provider=x.provider,provider_symbol=x.provider_symbol,observed_at=x.timestamp,open=x.open,high=x.high,low=x.low,close=x.close,volume=x.volume,adjusted_close=x.adjusted_close,received_at=x.received_at,quality=x.quality.value) for x in items];return tuple(self.rows)
+    def create_many_idempotent(self,items):return self.create_many(items)
     def get_range(self,**_):return tuple(self.rows)
 class Store:
     def create(self,**p):self.payload=p;return SimpleNamespace(id=uuid4(),**p)
@@ -63,7 +64,7 @@ def test_full_local_pipeline():
     analysis_store=Store();metric_store=Store();analysis=AnalysisService(candles=candles,engine=AnalysisEngine(),analyses=analysis_store,metrics=metric_store).analyze(asset_id=ASSET,provider="deterministic",interval=CandleInterval.ONE_DAY,start=NOW-timedelta(days=5),end=NOW,period=3)
     ai=AIService(provider=AI(),repository=Store(),provider_name="fake",model="fake",prompt_version="v1").analyze(context=ValidatedAIContext("asset","market",quote.record.price,"EUR",tuple((m.name,m.value) for m in analysis.metrics),NOW,"analysis-v1"),asset_id=ASSET,started_at=NOW,finished_at=NOW)
     opportunity=OpportunityService(engine=OpportunityEngine(OpportunityPolicy("v1",(MetricRule("RETURN",MetricOperator.GT,Decimal("0"),Decimal("80"),EvidenceCategory.TREND.value),MetricRule("SMA",MetricOperator.GT,Decimal("0"),Decimal("20"),EvidenceCategory.VOLUME.value)))),repository=Store()).assess(asset_id=ASSET,analysis_id=analysis_store.payload and uuid4(),metrics={m.name:m.value for m in analysis.metrics},quote_quality=quote.assessment.quality,reference_at=NOW,evaluated_at=NOW,ai_positive=ai.classification is AIClassification.POSITIVE)
-    sender=Sender(); alert=AlertService(engine=AlertEngine(AlertPolicy(minimum_level=OpportunityLevel.INTERESTING)),repository=Alerts(),sender=sender).send(asset_id=ASSET,opportunity_id=uuid4(),recipient_id=1,recipient_authorized=True,level=opportunity.level,quality=quote.assessment.quality,decided_at=NOW,asset="asset",timestamp=NOW,price=quote.record.price,score=opportunity.score)
+    sender=Sender(); alert=AlertService(engine=AlertEngine(AlertPolicy(minimum_level=OpportunityLevel.INTERESTING)),repository=Alerts(),sender=sender).send(asset_id=ASSET,opportunity_id=uuid4(),recipient_id=1,recipient_authorized=True,level=opportunity.level,quality=quote.assessment.quality,decided_at=NOW,asset="asset",timestamp=NOW,price=quote.record.price,score=opportunity.score,production_ready=True,automation_enabled=True)
     assert quote.assessment.data.quality is DataQuality.VALID and all(x.data.quality is DataQuality.VALID for x in history.assessments) and sender.messages and alert.sent_at==NOW
 
 @pytest.mark.skipif(os.getenv("RUN_FULL_PIPELINE_E2E")!="1",reason="RUN_FULL_PIPELINE_E2E=1 required")

@@ -31,7 +31,7 @@ class Settings:
     supabase_url: str
     supabase_secret_key: str = field(repr=False)
 
-    telegram_bot_token: str = field(repr=False)
+    telegram_bot_token: str | None = field(repr=False)
     telegram_allowed_user_ids: frozenset[int]
     brapi_token: str | None = None
     gemini_api_key: str | None = field(default=None, repr=False)
@@ -45,6 +45,16 @@ class Settings:
     market_history_candle_interval: str = "1d"
 
     automated_pipeline_enabled: bool = False
+    automation_enabled: bool = False
+    shadow_mode_enabled: bool = False
+    production_ready: bool = False
+    shadow_policy_version: str | None = None
+    shadow_interval_seconds: int = 1800
+    shadow_candle_interval: str = "1d"
+    shadow_lookback_days: int = 30
+    shadow_analysis_period: int = 14
+    shadow_forward_horizon_days: int = 5
+    shadow_round_trip_cost_bps: Decimal = Decimal("20")
     automated_pipeline_interval_seconds: int = 1800
     automated_pipeline_providers: tuple[str, ...] = ("brapi", "twelve_data")
     automated_pipeline_candle_interval: str = "1d"
@@ -168,7 +178,9 @@ def get_settings() -> Settings:
 
     supabase_url = get_required_env("SUPABASE_URL")
     supabase_secret_key = get_required_env("SUPABASE_SECRET_KEY")
-    telegram_bot_token = get_required_env("TELEGRAM_BOT_TOKEN")
+    # Telegram is required only by the explicitly enabled production-alert
+    # pipeline.  Shadow collection must be executable without this credential.
+    telegram_bot_token = get_optional_env("TELEGRAM_BOT_TOKEN")
     telegram_allowed_user_ids = parse_telegram_allowed_user_ids(
         os.getenv("TELEGRAM_ALLOWED_USER_IDS", "")
     )
@@ -201,6 +213,16 @@ def get_settings() -> Settings:
         automated_pipeline_enabled=_optional_bool(
             "AUTOMATED_PIPELINE_ENABLED", False
         ),
+        automation_enabled=_optional_bool("AUTOMATION_ENABLED", False),
+        shadow_mode_enabled=_optional_bool("SHADOW_MODE_ENABLED", False),
+        production_ready=_optional_bool("PRODUCTION_READY", False),
+        shadow_policy_version=get_optional_env("SHADOW_POLICY_VERSION"),
+        shadow_interval_seconds=_positive_int("SHADOW_INTERVAL_SECONDS", 1800),
+        shadow_candle_interval=(get_optional_env("SHADOW_CANDLE_INTERVAL") or "1d"),
+        shadow_lookback_days=_positive_int("SHADOW_LOOKBACK_DAYS", 30),
+        shadow_analysis_period=_positive_int("SHADOW_ANALYSIS_PERIOD", 14),
+        shadow_forward_horizon_days=_positive_int("SHADOW_FORWARD_HORIZON_DAYS", 5),
+        shadow_round_trip_cost_bps=_non_negative_decimal("SHADOW_ROUND_TRIP_COST_BPS", Decimal("20")),
         automated_pipeline_interval_seconds=_positive_int(
             "AUTOMATED_PIPELINE_INTERVAL_SECONDS", 1800
         ),

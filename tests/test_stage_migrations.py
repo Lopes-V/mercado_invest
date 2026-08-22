@@ -2,7 +2,7 @@ from pathlib import Path
 import pytest
 
 MIGRATIONS=Path("supabase/migrations")
-PURPOSES=("create_portfolio_tables","create_analysis_tables","create_ai_opportunity_alert_tables","create_backtesting_paper_trading_tables","harden_job_runs","create_fixed_income_tables","create_fx_rates")
+PURPOSES=("create_portfolio_tables","create_analysis_tables","create_ai_opportunity_alert_tables","create_backtesting_paper_trading_tables","harden_job_runs","create_fixed_income_tables","create_fx_rates","add_policy_lifecycle_shadow")
 @pytest.mark.parametrize("purpose",PURPOSES)
 def test_stage_migration_is_unique_and_secured(purpose):
     matches=sorted(MIGRATIONS.glob(f"*_{purpose}.sql"));assert len(matches)==1
@@ -10,6 +10,30 @@ def test_stage_migration_is_unique_and_secured(purpose):
     if purpose != "harden_job_runs":
         assert "enable row level security" in sql and "from anon, authenticated, public, service_role" in sql and "grant select, insert, update, delete" in sql
     assert "numeric(38,18)" in sql or purpose=="harden_job_runs"
+
+
+def test_policy_lifecycle_migration_has_idempotency_and_only_justified_indexes():
+    matches = sorted(MIGRATIONS.glob("*_add_policy_lifecycle_shadow.sql"))
+    assert len(matches) == 1
+    assert matches[0].name == "20260821235316_add_policy_lifecycle_shadow.sql"
+    sql = matches[0].read_text().lower()
+    assert "prediction_key text not null unique" in sql
+    assert "where realized_at is null" in sql
+    assert "enable row level security" in sql
+    assert "from anon, authenticated, public, service_role" in sql
+    assert "grant select, insert, update, delete" in sql
+    assert "policy " not in sql
+
+
+def test_shadow_reference_identity_migration_preserves_observation_uniqueness():
+    matches = sorted(MIGRATIONS.glob("*_add_shadow_prediction_reference_identity.sql"))
+    assert len(matches) == 1
+    assert matches[0].name > "20260821235316_add_policy_lifecycle_shadow.sql"
+    sql = matches[0].read_text().lower()
+    assert "add column reference_at timestamptz" in sql
+    assert "alter column reference_at set not null" in sql
+    assert "unique (policy_id, asset_id, provider, interval, reference_at)" in sql
+    assert "check (outcome_due_at > reference_at)" in sql
 
 def test_stage_query_indexes_migration_is_unique_and_only_adds_expected_indexes():
     matches=sorted(MIGRATIONS.glob("*_add_stage5_16_query_indexes.sql"));assert len(matches)==1

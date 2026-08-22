@@ -7,6 +7,8 @@ def run_bot_once(
     settings: Settings,
     offset: int | None = None,
 ) -> int | None:
+    if not settings.telegram_bot_token:
+        raise RuntimeError("Telegram bot não pode iniciar sem TELEGRAM_BOT_TOKEN.")
     if not settings.telegram_allowed_user_ids:
         raise RuntimeError(
             "Telegram bot não pode iniciar "

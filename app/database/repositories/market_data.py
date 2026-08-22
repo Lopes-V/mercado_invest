@@ -10,7 +10,7 @@ from app.database.models import (
     RepositoryDataError,
 )
 from app.database.repositories._response import create_one, read_one_or_none
-from app.market_data.models import Candle, CandleInterval, Quote
+from app.market_data.models import Candle, CandleInterval, DataQuality, Quote, ensure_utc_datetime
 
 
 class ProviderSymbolRepository:
@@ -80,6 +80,72 @@ class MarketCandleRepository:
     def get_by_id(self, record_id: UUID) -> MarketCandleRecord | None:
         return read_one_or_none(self._client.table("market_candles").select("*").eq("id", str(record_id)), operation="get market candle by id", parser=MarketCandleRecord.from_payload)
 
+    def get_by_identity(
+        self,
+        *,
+        asset_id: UUID,
+        provider: str,
+        interval: CandleInterval,
+        observed_at: datetime,
+    ) -> MarketCandleRecord | None:
+        query = (
+            self._client.table("market_candles")
+            .select("*")
+            .eq("asset_id", str(asset_id))
+            .eq("provider", provider)
+            .eq("interval", interval.value)
+            .eq("observed_at", observed_at.isoformat())
+        )
+        return read_one_or_none(
+            query,
+            operation="get market candle by identity",
+            parser=MarketCandleRecord.from_payload,
+        )
+
+    def create_many_idempotent(
+        self, candles: list[Candle] | tuple[Candle, ...]
+    ) -> tuple[MarketCandleRecord, ...]:
+        """Persist only missing historical candles through explicit reads/inserts.
+
+        Daily history requests intentionally overlap.  This method is not an
+        upsert: an existing immutable identity is read and reused, missing
+        identities are inserted, and a concurrent uniqueness race still
+        propagates as a database error instead of being silently overwritten.
+        """
+
+        if not candles:
+            return ()
+        identities = [
+            (candle.asset_id, candle.provider, candle.interval, candle.timestamp)
+            for candle in candles
+        ]
+        if len(set(identities)) != len(identities):
+            raise ValueError("candles de entrada não podem ter identidade duplicada")
+        existing: dict[tuple[UUID, str, CandleInterval, datetime], MarketCandleRecord] = {}
+        missing: list[Candle] = []
+        for candle, identity in zip(candles, identities, strict=True):
+            record = self.get_by_identity(
+                asset_id=candle.asset_id,
+                provider=candle.provider,
+                interval=candle.interval,
+                observed_at=candle.timestamp,
+            )
+            if record is None:
+                missing.append(candle)
+            else:
+                existing[identity] = record
+        created = self.create_many(missing) if missing else ()
+        for record in created:
+            existing[
+                (
+                    record.asset_id,
+                    record.provider,
+                    CandleInterval(record.interval),
+                    record.observed_at,
+                )
+            ] = record
+        return tuple(existing[identity] for identity in identities)
+
     def get_range(self, *, asset_id: UUID, provider: str, interval: CandleInterval, start: datetime, end: datetime) -> tuple[MarketCandleRecord, ...]:
         query = self._client.table("market_candles").select("*").eq("asset_id", str(asset_id)).eq("provider", provider).eq("interval", interval.value).gte("observed_at", start.isoformat()).lte("observed_at", end.isoformat()).order("observed_at", desc=False)
         response = query.execute()
@@ -87,3 +153,34 @@ class MarketCandleRepository:
         if not isinstance(rows, list):
             raise RepositoryDataError("get market candle range retornou dados inválidos")
         return tuple(MarketCandleRecord.from_payload(row) for row in rows)
+
+    def first_price_at_or_after(
+        self,
+        *,
+        asset_id: UUID,
+        provider: str,
+        interval: str,
+        at_or_after: datetime,
+    ) -> MarketCandleRecord | None:
+        """Return the first VALID close no earlier than a shadow due instant."""
+
+        due = ensure_utc_datetime(at_or_after, field="at_or_after")
+
+        response = (
+            self._client.table("market_candles")
+            .select("*")
+            .eq("asset_id", str(asset_id))
+            .eq("provider", provider)
+            .eq("interval", interval)
+            .eq("quality", DataQuality.VALID.value)
+            .gte("observed_at", due.isoformat())
+            .order("observed_at", desc=False)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise RepositoryDataError("get first shadow outcome candle retornou dados inválidos")
+        if not rows:
+            return None
+        return MarketCandleRecord.from_payload(rows[0])

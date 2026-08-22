@@ -138,6 +138,24 @@ def test_authorization_value_is_not_disclosed_in_http_error():
     assert token not in str(raised.value)
 
 
+@pytest.mark.parametrize("status_code", [400, 401, 403, 429])
+def test_http_error_exposes_only_safe_provider_code(status_code):
+    client = client_for(
+        lambda request: httpx.Response(
+            status_code,
+            text='{"code":"INVALID_RANGE","message":"Bearer secret-token"}',
+        ),
+        policy=RetryPolicy(max_attempts=1),
+    )
+
+    with pytest.raises(ProviderHttpError) as raised:
+        client.get_json("/data", headers={"Authorization": "Bearer secret-token"})
+
+    assert raised.value.status_code == status_code
+    assert raised.value.provider_code == "INVALID_RANGE"
+    assert "secret-token" not in str(raised.value)
+
+
 def test_redirect_is_not_followed_automatically():
     calls = []
 
