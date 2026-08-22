@@ -131,8 +131,9 @@ class _Symbols:
 
 
 class _Candles:
-    def __init__(self, quality="VALID"):
+    def __init__(self, quality="VALID", observed_at=NOW):
         self.quality = quality
+        self.observed_at = observed_at
 
     def get_range(self, **_kwargs):
         return (
@@ -140,8 +141,8 @@ class _Candles:
                 asset_id=ASSET_ID,
                 provider="brapi",
                 provider_symbol="TEST3",
-                observed_at=NOW,
-                received_at=NOW,
+                observed_at=self.observed_at,
+                received_at=self.observed_at,
                 open=Decimal("99"),
                 high=Decimal("101"),
                 low=Decimal("98"),
@@ -172,12 +173,13 @@ class _Analysis:
 def _shadow_job(*, record=None, quality="VALID"):
     predictions = _Predictions()
     analysis = _Analysis()
+    candles = _Candles(quality)
     job = ShadowOpportunityPipelineJob(
         provider_name="brapi",
         policy_version="candidate-v1",
         frozen_policies=_Policies(record or frozen_record()),
         provider_symbols=_Symbols(),
-        candles=_Candles(quality),
+        candles=candles,
         analysis_service=analysis,
         shadow_service=ShadowService(repository=predictions),
         interval=CandleInterval.ONE_DAY,
@@ -186,27 +188,38 @@ def _shadow_job(*, record=None, quality="VALID"):
         forward_horizon_days=5,
         round_trip_cost_bps=Decimal("20"),
     )
-    return job, predictions, analysis
+    return job, predictions, analysis, candles
 
 
-def test_shadow_job_reads_frozen_policy_and_prediction_is_idempotent():
-    job, predictions, analysis = _shadow_job()
-    context = JobContext(uuid4(), JobTrigger.SCHEDULED, NOW, NOW)
-    assert job.execute(context).processed_count == 1
-    assert job.execute(context).processed_count == 1
+def test_shadow_job_deduplicates_three_scheduler_slots_for_one_candle_and_accepts_a_new_candle():
+    job, predictions, analysis, candles = _shadow_job()
+    ten = NOW + timedelta(hours=10)
+    ten_thirty = NOW + timedelta(hours=10, minutes=30)
+    eleven = NOW + timedelta(hours=11)
+    for scheduled_for in (ten, ten_thirty, eleven):
+        assert job.execute(JobContext(uuid4(), JobTrigger.SCHEDULED, scheduled_for, scheduled_for)).processed_count == 1
     assert len(predictions.rows) == 1
-    assert analysis.calls == 2
+    assert analysis.calls == 3
     prediction = predictions.rows[0]
     assert prediction.policy_id == POLICY_ID
     assert prediction.outcome_due_at == NOW + timedelta(days=5)
+    assert prediction.reference_at == NOW
+    assert prediction.predicted_at == ten
     assert prediction.quality == "VALID"
+
+    candles.observed_at = NOW + timedelta(days=1)
+    next_day = NOW + timedelta(days=1, hours=10)
+    assert job.execute(JobContext(uuid4(), JobTrigger.SCHEDULED, next_day, next_day)).processed_count == 1
+    assert len(predictions.rows) == 2
+    assert predictions.rows[1].reference_at == NOW + timedelta(days=1)
+    assert predictions.rows[1].outcome_due_at == NOW + timedelta(days=6)
 
 
 def test_shadow_job_blocks_invalid_quality_and_ineligible_frozen_policy():
-    job, predictions, analysis = _shadow_job(quality="STALE")
+    job, predictions, analysis, _candles = _shadow_job(quality="STALE")
     assert job.execute(JobContext(uuid4(), JobTrigger.SCHEDULED, NOW, NOW)).processed_count == 0
     assert not predictions.rows and analysis.calls == 0
-    job, _predictions, _analysis = _shadow_job(record=frozen_record(status="RETIRED"))
+    job, _predictions, _analysis, _candles = _shadow_job(record=frozen_record(status="RETIRED"))
     with pytest.raises(FrozenPolicyError):
         job.execute(JobContext(uuid4(), JobTrigger.SCHEDULED, NOW, NOW))
 

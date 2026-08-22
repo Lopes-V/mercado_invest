@@ -24,6 +24,17 @@ def test_policy_lifecycle_migration_has_idempotency_and_only_justified_indexes()
     assert "grant select, insert, update, delete" in sql
     assert "policy " not in sql
 
+
+def test_shadow_reference_identity_migration_preserves_observation_uniqueness():
+    matches = sorted(MIGRATIONS.glob("*_add_shadow_prediction_reference_identity.sql"))
+    assert len(matches) == 1
+    assert matches[0].name > "20260821235316_add_policy_lifecycle_shadow.sql"
+    sql = matches[0].read_text().lower()
+    assert "add column reference_at timestamptz" in sql
+    assert "alter column reference_at set not null" in sql
+    assert "unique (policy_id, asset_id, provider, interval, reference_at)" in sql
+    assert "check (outcome_due_at > reference_at)" in sql
+
 def test_stage_query_indexes_migration_is_unique_and_only_adds_expected_indexes():
     matches=sorted(MIGRATIONS.glob("*_add_stage5_16_query_indexes.sql"));assert len(matches)==1
     sql=matches[0].read_text().lower()

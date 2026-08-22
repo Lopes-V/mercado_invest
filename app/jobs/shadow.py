@@ -137,10 +137,12 @@ class ShadowOpportunityPipelineJob:
                     asset_id=mapping.asset_id,
                     provider=self._provider_name,
                     interval=self._interval.value,
+                    reference_at=reference.observed_at,
                     predicted_at=context.scheduled_for,
                     # This is a calendar-day horizon, explicitly configured
-                    # as SHADOW_FORWARD_HORIZON_DAYS; it is not a candle count.
-                    outcome_due_at=context.scheduled_for + self._forward_horizon,
+                    # as SHADOW_FORWARD_HORIZON_DAYS; it starts at the closed
+                    # reference candle rather than at a repeated scheduler slot.
+                    outcome_due_at=reference.observed_at + self._forward_horizon,
                     reference_price=reference.close,
                     quality=DataQuality.VALID,
                     assessment=assessment,

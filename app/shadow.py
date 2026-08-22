@@ -34,6 +34,7 @@ class ShadowPredictionInput:
     asset_id: UUID
     provider: str
     interval: str
+    reference_at: datetime
     predicted_at: datetime
     outcome_due_at: datetime
     reference_price: Decimal
@@ -48,7 +49,14 @@ class ShadowService:
 
     @staticmethod
     def prediction_key(item: ShadowPredictionInput) -> str:
-        return f"{item.policy_version}:{item.asset_id}:{item.provider}:{item.interval}:{item.predicted_at.isoformat()}"
+        """Return the immutable market-observation identity for a prediction.
+
+        ``predicted_at`` is operational audit data: a scheduler may evaluate
+        the same closed candle more than once.  It must never create another
+        future-evidence signal for that market observation.
+        """
+
+        return f"{item.policy_version}:{item.asset_id}:{item.provider}:{item.interval}:{item.reference_at.isoformat()}"
 
     def __init__(self, *, repository: ShadowRepository) -> None:
         self._repository = repository
@@ -56,8 +64,8 @@ class ShadowService:
     def record_prediction(self, item: ShadowPredictionInput):
         if item.quality is not DataQuality.VALID:
             raise ValueError("shadow exige quality VALID")
-        if item.outcome_due_at <= item.predicted_at:
-            raise ValueError("outcome_due_at deve ser posterior à previsão")
+        if item.outcome_due_at <= item.reference_at:
+            raise ValueError("outcome_due_at deve ser posterior ao candle de referência")
         if item.reference_price <= ZERO:
             raise ValueError("reference_price deve ser positivo")
         if item.round_trip_cost_bps < ZERO:
@@ -72,6 +80,7 @@ class ShadowService:
             provider=item.provider,
             interval=item.interval,
             prediction_key=key,
+            reference_at=item.reference_at,
             predicted_at=item.predicted_at,
             outcome_due_at=item.outcome_due_at,
             reference_price=item.reference_price,

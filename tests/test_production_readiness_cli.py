@@ -68,13 +68,17 @@ def test_readiness_cli_accepts_sufficient_net_positive_evidence(monkeypatch, cap
     record = _record()
     predictions = tuple(
         SimpleNamespace(
+            policy_id=record.id,
             asset_id=uuid4(),
-            predicted_at=NOW,
-            realized_at=NOW + timedelta(days=5),
+            provider="test",
+            interval="1d",
+            reference_at=NOW + timedelta(days=index),
+            predicted_at=NOW + timedelta(days=index),
+            realized_at=NOW + timedelta(days=index + 5),
             gross_return=Decimal("0.02"),
             net_return=Decimal("0.018"),
         )
-        for _ in range(20)
+        for index in range(20)
     )
     monkeypatch.setattr(command, "get_settings", lambda: object())
     monkeypatch.setattr(command, "create_supabase_client", lambda _settings: object())

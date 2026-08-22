@@ -64,6 +64,7 @@ class ShadowPredictionRecord:
     provider: str
     interval: str
     prediction_key: str
+    reference_at: datetime
     predicted_at: datetime
     outcome_due_at: datetime
     reference_price: Decimal
@@ -82,7 +83,7 @@ class ShadowPredictionRecord:
             raise ValueError("realized_positive inválido")
         return cls(
             _uuid(payload, "id"), _uuid(payload, "policy_id"), _uuid(payload, "asset_id"), _text(payload, "provider"), _text(payload, "interval"), _text(payload, "prediction_key"),
-            _datetime(payload, "predicted_at"), _datetime(payload, "outcome_due_at"), _decimal(payload, "reference_price"), _text(payload, "quality"), _decimal(payload, "round_trip_cost_bps"),
+            _datetime(payload, "reference_at"), _datetime(payload, "predicted_at"), _datetime(payload, "outcome_due_at"), _decimal(payload, "reference_price"), _text(payload, "quality"), _decimal(payload, "round_trip_cost_bps"),
             _nullable_datetime(payload, "realized_at"), _nullable_decimal(payload, "realized_price"),
             _nullable_decimal(payload, "gross_return"), _nullable_decimal(payload, "net_return"), positive,
         )
@@ -128,13 +129,13 @@ class ShadowPredictionRepository:
         return tuple(record for record in records if record.realized_at is not None)
 
     def list_by_policy(self, policy_id: UUID) -> tuple[ShadowPredictionRecord, ...]:
-        """List a policy's shadow audit trail in deterministic prediction order."""
+        """List a policy's shadow audit trail in deterministic reference order."""
 
         response = (
             self._client.table("shadow_predictions")
             .select("*")
             .eq("policy_id", str(policy_id))
-            .order("predicted_at", desc=False)
+            .order("reference_at", desc=False)
             .execute()
         )
         data = getattr(response, "data", None)

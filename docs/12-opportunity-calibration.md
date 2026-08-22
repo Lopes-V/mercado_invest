@@ -49,8 +49,13 @@ scheduler avalia candles `VALID` com a policy persistida em
 `frozen_opportunity_policies`. Ele registra apenas sinais determinísticos em
 `shadow_predictions`; não instancia Gemini, Telegram, AlertService ou qualquer
 executor de trade. `SHADOW_FORWARD_HORIZON_DAYS` é deliberadamente um horizonte
-em dias de calendário, não uma contagem sintética de candles. O settlement usa
-o primeiro candle `VALID` com `observed_at >= outcome_due_at`.
+em dias de calendário, não uma contagem sintética de candles: ele começa no
+`observed_at` do candle de referência. `reference_at` identifica essa observação
+de mercado; `predicted_at` registra somente quando o scheduler a avaliou. Assim,
+uma policy congelada cria no máximo um sinal para
+`policy + asset + provider + interval + reference_at`, mesmo que o scheduler
+execute vários slots com o mesmo último candle. O settlement usa o primeiro
+candle `VALID` com `observed_at >= outcome_due_at`.
 
 Para avaliar a policy sem alterar variáveis do GitHub:
 

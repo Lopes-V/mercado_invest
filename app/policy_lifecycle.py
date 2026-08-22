@@ -182,9 +182,28 @@ def build_robustness_report(
 
 
 def future_evidence_from_realized(predictions: tuple[object, ...]) -> FutureEvidence:
-    """Summarise only predictions that already have a persisted realized outcome."""
+    """Summarise settled, independent market observations only.
 
-    realized = tuple(item for item in predictions if getattr(item, "realized_at", None) is not None)
+    The database enforces this identity for current records.  The defensive
+    collapse here ensures the production gate cannot be inflated if callers
+    provide repeated rows for the same observation.
+    """
+
+    realized_by_identity = {}
+    for item in predictions:
+        if getattr(item, "realized_at", None) is None:
+            continue
+        identity = (
+            getattr(item, "policy_id", None),
+            getattr(item, "asset_id", None),
+            getattr(item, "provider", None),
+            getattr(item, "interval", None),
+            getattr(item, "reference_at", None),
+        )
+        if any(value is None for value in identity):
+            raise ValueError("shadow realizada sem identidade de referência")
+        realized_by_identity.setdefault(identity, item)
+    realized = tuple(realized_by_identity.values())
     returns = tuple(getattr(item, "gross_return") for item in realized)
     net_returns = tuple(getattr(item, "net_return") for item in realized)
     return FutureEvidence(

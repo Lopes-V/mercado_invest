@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from dataclasses import replace
 from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
@@ -14,6 +15,7 @@ from app.shadow import ShadowPredictionInput, ShadowService
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 ASSET_A = uuid4()
 ASSET_B = uuid4()
+POLICY_ID = uuid4()
 
 
 def policy() -> OpportunityPolicy:
@@ -67,8 +69,18 @@ def test_historical_calibration_alone_never_makes_production_ready():
 
 def test_future_evidence_requires_net_positive_but_not_operator_enablement():
     rows = tuple(
-        SimpleNamespace(asset_id=ASSET_A, predicted_at=NOW, realized_at=NOW + timedelta(days=5), gross_return=Decimal("0.01"), net_return=Decimal("0.005"))
-        for _ in range(20)
+        SimpleNamespace(
+            policy_id=POLICY_ID,
+            asset_id=ASSET_A,
+            provider="test",
+            interval="1d",
+            reference_at=NOW + timedelta(days=index),
+            predicted_at=NOW + timedelta(days=index),
+            realized_at=NOW + timedelta(days=index + 5),
+            gross_return=Decimal("0.01"),
+            net_return=Decimal("0.005"),
+        )
+        for index in range(20)
     )
     evidence = future_evidence_from_realized(rows)
     gate = ProductionGatePolicy(min_future_signals=20)
@@ -83,13 +95,17 @@ def test_future_evidence_requires_net_positive_but_not_operator_enablement():
 def test_net_negative_future_evidence_blocks_policy_readiness():
     rows = tuple(
         SimpleNamespace(
+            policy_id=POLICY_ID,
             asset_id=ASSET_A,
+            provider="test",
+            interval="1d",
+            reference_at=NOW + timedelta(days=index),
             predicted_at=NOW,
-            realized_at=NOW + timedelta(days=5),
+            realized_at=NOW + timedelta(days=index + 5),
             gross_return=Decimal("0.001"),
             net_return=Decimal("-0.001"),
         )
-        for _ in range(20)
+        for index in range(20)
     )
     assert not production_ready(
         calibration_release_ready=True,
@@ -117,11 +133,16 @@ def test_shadow_prediction_is_idempotent_and_settlement_cannot_look_ahead():
     service = ShadowService(repository=repo)
     item = ShadowPredictionInput(
         policy_id=uuid4(), policy_version="frozen-v1", asset_id=ASSET_A, provider="test", interval="1d",
+        reference_at=NOW,
         predicted_at=NOW, outcome_due_at=NOW + timedelta(days=5), reference_price=Decimal("100"), quality=DataQuality.VALID,
         assessment=OpportunityAssessment(OpportunityLevel.INTERESTING, Decimal("60"), 2, ("RETURN",)), metrics={"RETURN": Decimal("0.1")}, round_trip_cost_bps=Decimal("20"),
     )
     first = service.record_prediction(item)
     assert service.record_prediction(item) is first
+
+    assert ShadowService.prediction_key(replace(item, reference_at=NOW + timedelta(days=1))) != ShadowService.prediction_key(item)
+    assert ShadowService.prediction_key(replace(item, predicted_at=NOW + timedelta(minutes=30))) == ShadowService.prediction_key(item)
+    assert service.record_prediction(replace(item, predicted_at=NOW + timedelta(minutes=30))) is first
 
     class Prices:
         def first_price_at_or_after(self, **kwargs):
@@ -150,6 +171,7 @@ def test_shadow_settlement_ignores_non_valid_outcome_candles():
         ShadowPredictionInput(
             policy_id=uuid4(), policy_version="frozen-v1", asset_id=ASSET_A,
             provider="test", interval="1d", predicted_at=NOW,
+            reference_at=NOW,
             outcome_due_at=NOW + timedelta(days=5), reference_price=Decimal("100"),
             quality=DataQuality.VALID,
             assessment=OpportunityAssessment(OpportunityLevel.INTERESTING, Decimal("60"), 2, ("RETURN",)),
@@ -171,14 +193,22 @@ def test_shadow_settlement_ignores_non_valid_outcome_candles():
 
 def test_future_evidence_counts_only_realized_shadow_predictions():
     pending = SimpleNamespace(
+        policy_id=POLICY_ID,
         asset_id=ASSET_A,
+        provider="test",
+        interval="1d",
+        reference_at=NOW,
         predicted_at=NOW,
         realized_at=None,
         gross_return=None,
         net_return=None,
     )
     settled = SimpleNamespace(
+        policy_id=POLICY_ID,
         asset_id=ASSET_A,
+        provider="test",
+        interval="1d",
+        reference_at=NOW,
         predicted_at=NOW,
         realized_at=NOW + timedelta(days=5),
         gross_return=Decimal("0.02"),
@@ -187,6 +217,32 @@ def test_future_evidence_counts_only_realized_shadow_predictions():
     evidence = future_evidence_from_realized((pending, settled))
     assert evidence.signals == 1
     assert evidence.net_average_return == Decimal("0.018")
+
+
+def test_repeated_scheduler_slots_for_one_reference_candle_do_not_inflate_future_signals():
+    rows = tuple(
+        SimpleNamespace(
+            policy_id=POLICY_ID,
+            asset_id=ASSET_A,
+            provider="test",
+            interval="1d",
+            reference_at=NOW,
+            predicted_at=NOW + timedelta(minutes=30 * index),
+            realized_at=NOW + timedelta(days=5),
+            gross_return=Decimal("0.02"),
+            net_return=Decimal("0.018"),
+        )
+        for index in range(20)
+    )
+    evidence = future_evidence_from_realized(rows)
+
+    assert evidence.signals == 1
+    assert not production_ready(
+        calibration_release_ready=True,
+        policy_active=True,
+        evidence=evidence,
+        gate=ProductionGatePolicy(min_future_signals=20),
+    )
 
 
 def test_alert_is_suppressed_until_production_and_automation_gates_are_true():
