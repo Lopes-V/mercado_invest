@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -11,6 +13,14 @@ from app.database.models import (
 )
 from app.database.repositories._response import create_one, read_one_or_none
 from app.market_data.models import Candle, CandleInterval, DataQuality, Quote, ensure_utc_datetime
+
+
+@dataclass(frozen=True, slots=True)
+class MarketQuoteSaveResult:
+    """Outcome of an immutable market quote write."""
+
+    record: MarketQuoteRecord
+    created: bool
 
 
 class ProviderSymbolRepository:
@@ -46,12 +56,44 @@ class MarketQuoteRepository:
     def __init__(self, client: Client) -> None:
         self._client = client
 
-    def create_from_quote(self, quote: Quote) -> MarketQuoteRecord:
+    def create_from_quote(self, quote: Quote) -> MarketQuoteSaveResult:
+        """Atomically insert a quote or return its existing immutable observation.
+
+        The unique database identity is the authority for duplicate detection.
+        The follow-up identity lookup is only to recover the existing record after
+        PostgreSQL has already decided ``ON CONFLICT DO NOTHING``.
+        """
         if quote.quality is None:
             raise ValueError("quote deve possuir quality avaliada antes de persistir")
         payload = {"asset_id": str(quote.asset_id), "provider": quote.provider, "provider_symbol": quote.provider_symbol, "price": str(quote.price), "currency_code": quote.currency_code, "observed_at": quote.timestamp.isoformat(), "received_at": quote.received_at.isoformat(), "quality": quote.quality.value}
-        response = self._client.table("market_quotes").insert(payload).execute()
-        return create_one(response, operation="create market quote", parser=MarketQuoteRecord.from_payload)
+        response = (
+            self._client.table("market_quotes")
+            .upsert(
+                payload,
+                on_conflict="asset_id,provider,observed_at",
+                ignore_duplicates=True,
+            )
+            .execute()
+        )
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list) or not all(isinstance(row, Mapping) for row in rows):
+            raise RepositoryDataError("create market quote retornou dados fora do formato esperado")
+        if len(rows) == 1:
+            return MarketQuoteSaveResult(
+                record=MarketQuoteRecord.from_payload(rows[0]), created=True
+            )
+        if len(rows) != 0:
+            raise RepositoryDataError("create market quote deve retornar no máximo um registro")
+        existing = self.get_by_identity(
+            asset_id=quote.asset_id,
+            provider=quote.provider,
+            observed_at=quote.timestamp,
+        )
+        if existing is None:
+            raise RepositoryDataError(
+                "duplicate market quote não retornou o registro existente"
+            )
+        return MarketQuoteSaveResult(record=existing, created=False)
 
     def get_by_id(self, record_id: UUID) -> MarketQuoteRecord | None:
         return read_one_or_none(self._client.table("market_quotes").select("*").eq("id", str(record_id)), operation="get market quote by id", parser=MarketQuoteRecord.from_payload)
@@ -59,6 +101,22 @@ class MarketQuoteRepository:
     def get_latest(self, asset_id: UUID, provider: str) -> MarketQuoteRecord | None:
         query = self._client.table("market_quotes").select("*").eq("asset_id", str(asset_id)).eq("provider", provider).order("observed_at", desc=True)
         return read_one_or_none(query, operation="get latest market quote", parser=MarketQuoteRecord.from_payload)
+
+    def get_by_identity(
+        self, *, asset_id: UUID, provider: str, observed_at: datetime
+    ) -> MarketQuoteRecord | None:
+        query = (
+            self._client.table("market_quotes")
+            .select("*")
+            .eq("asset_id", str(asset_id))
+            .eq("provider", provider)
+            .eq("observed_at", observed_at.isoformat())
+        )
+        return read_one_or_none(
+            query,
+            operation="get market quote by identity",
+            parser=MarketQuoteRecord.from_payload,
+        )
 
 
 class MarketCandleRepository:

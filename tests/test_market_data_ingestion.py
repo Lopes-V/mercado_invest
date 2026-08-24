@@ -50,8 +50,12 @@ class Symbols:
 
 
 class Quotes:
-    def __init__(self): self.saved = []
-    def create_from_quote(self, value): self.saved.append(value); return SimpleNamespace(quality=value.quality)
+    def __init__(self, *, created=True): self.saved, self.created = [], created
+    def create_from_quote(self, value):
+        self.saved.append(value)
+        return SimpleNamespace(
+            record=SimpleNamespace(quality=value.quality), created=self.created
+        )
 
 
 class Candles:
@@ -70,6 +74,7 @@ def test_quote_ingestion_reassesses_and_persists_assessed_data():
     assert provider.request.provider_symbol == "TEST"
     assert result.assessment.data.quality is not None
     assert result.record.quality == result.assessment.quality
+    assert result.created is True
 
 
 def test_ingestion_rejects_missing_or_wrong_provider_mapping():

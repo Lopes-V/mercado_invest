@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import UUID
@@ -23,10 +24,18 @@ class Symbols:
 
 
 class Ingestion:
-    def __init__(self, error_at=None): self.error_at, self.quotes, self.histories = error_at, [], []
+    def __init__(self, error_at=None, *, quote_created=True): self.error_at, self.quote_created, self.quotes, self.histories = error_at, quote_created, [], []
     def ingest_quote(self, asset_id, *, evaluated_at):
         self.quotes.append((asset_id, evaluated_at))
         if asset_id == self.error_at: raise RuntimeError("quote failure")
+        return SimpleNamespace(
+            created=self.quote_created,
+            record=SimpleNamespace(
+                asset_id=asset_id,
+                provider="fake",
+                observed_at=NOW,
+            ),
+        )
     def ingest_history(self, asset_id, interval, start, end, *, evaluated_at):
         self.histories.append((asset_id, interval, start, end, evaluated_at))
         if asset_id == self.error_at: raise RuntimeError("history failure")
@@ -50,6 +59,16 @@ def test_quote_collection_fails_fast():
     with pytest.raises(RuntimeError, match="quote failure"):
         MarketQuoteCollectionJob(provider=Provider(), ingestion=ingestion, provider_symbols=Symbols(MAPPINGS)).execute(CONTEXT)
     assert len(ingestion.quotes) == 1
+
+
+def test_quote_collection_ignores_persisted_duplicate_without_failing(caplog):
+    ingestion = Ingestion(quote_created=False)
+    job = MarketQuoteCollectionJob(
+        provider=Provider(), ingestion=ingestion, provider_symbols=Symbols(MAPPINGS[:1])
+    )
+    with caplog.at_level(logging.INFO, logger="investment_bot"):
+        assert job.execute(CONTEXT).processed_count == 1
+    assert "market_quote_duplicate_ignored job_name=market_quotes:fake" in caplog.text
 
 
 def test_history_collection_uses_explicit_window_interval_and_fails_fast():

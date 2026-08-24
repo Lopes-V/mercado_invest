@@ -1,5 +1,5 @@
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -29,25 +29,19 @@ def delete_created_market_data(
     client,
     *,
     asset_id: UUID | None,
-    provider: str,
-    ids: dict[str, UUID | None],
 ) -> None:
-    """Clean by exact record IDs, recovering IDs if an insert response fails."""
+    """Clean Market Data records belonging only to this temporary asset."""
     if asset_id is not None:
         for table, key in (("market_candles", "candle"), ("market_quotes", "quote")):
-            if ids[key] is None:
-                rows = (
-                    client.table(table)
-                    .select("id")
-                    .eq("asset_id", str(asset_id))
-                    .eq("provider", provider)
-                    .execute()
-                    .data
-                )
-                for row in rows:
-                    delete(client, table, UUID(row["id"]))
-            else:
-                delete(client, table, ids[key])
+            rows = (
+                client.table(table)
+                .select("id")
+                .eq("asset_id", str(asset_id))
+                .execute()
+                .data
+            )
+            for row in rows:
+                delete(client, table, UUID(row["id"]))
 
 
 def test_market_data_repositories_with_real_supabase_and_exact_cleanup():
@@ -71,8 +65,19 @@ def test_market_data_repositories_with_real_supabase_and_exact_cleanup():
         assert mappings.get_by_asset_and_provider(asset.id, "integration_test") == mapping
         assert mappings.get_by_provider_and_symbol("integration_test", mapping.provider_symbol) == mapping
         quote = Quote(asset.id, mapping.provider_symbol, Decimal("123.456789012345678"), "TST", now, now, "integration_test", DataQuality.VALID)
-        quote_record = quotes.create_from_quote(quote)
+        quote_save = quotes.create_from_quote(quote)
+        assert quote_save.created is True
+        quote_record = quote_save.record
         ids["quote"] = quote_record.id
+        duplicate_save = quotes.create_from_quote(quote)
+        assert duplicate_save.created is False
+        assert duplicate_save.record.id == quote_record.id
+        later_quote = Quote(asset.id, mapping.provider_symbol, Decimal("124"), "TST", now + timedelta(seconds=1), now + timedelta(seconds=1), "integration_test", DataQuality.VALID)
+        assert quotes.create_from_quote(later_quote).created is True
+        other_provider_quote = Quote(asset.id, mapping.provider_symbol, Decimal("125"), "TST", now, now, "integration_test_other", DataQuality.VALID)
+        assert quotes.create_from_quote(other_provider_quote).created is True
+        all_quotes = supabase.table("market_quotes").select("id").eq("asset_id", str(asset.id)).execute().data
+        assert len(all_quotes) == 3
         read_quote = quotes.get_by_id(quote_record.id)
         assert read_quote is not None
         assert read_quote.asset_id == asset.id and read_quote.provider == "integration_test"
@@ -87,8 +92,6 @@ def test_market_data_repositories_with_real_supabase_and_exact_cleanup():
         delete_created_market_data(
             supabase,
             asset_id=ids["asset"],
-            provider="integration_test",
-            ids=ids,
         )
         for table, key in (("asset_provider_symbols", "mapping"), ("assets", "asset"), ("exchanges", "exchange"), ("markets", "market"), ("currencies", "currency")):
             delete(supabase, table, ids[key])

@@ -1,7 +1,102 @@
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
+from uuid import UUID, uuid4
+
+import pytest
+
+from app.database.repositories.market_data import MarketQuoteRepository
+from app.market_data.models import DataQuality, Quote
 
 
 MIGRATIONS_DIR = Path("supabase/migrations")
+ASSET_ID = UUID("11111111-1111-1111-1111-111111111111")
+OBSERVED_AT = datetime(2026, 8, 21, 21, 31, 30, tzinfo=UTC)
+
+
+class FakeResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class PersistenceError(RuntimeError):
+    code = "23505"
+    constraint = "another_unique_constraint"
+
+
+class FakeMarketQuotesRequest:
+    def __init__(self, client):
+        self._client = client
+        self._filters = []
+
+    def upsert(self, payload, **kwargs):
+        self._upsert_payload = payload
+        self._upsert_options = kwargs
+        return self
+
+    def select(self, *_columns):
+        self._selecting = True
+        return self
+
+    def eq(self, column, value):
+        self._filters.append((column, value))
+        return self
+
+    def limit(self, _size):
+        return self
+
+    def execute(self):
+        if hasattr(self, "_upsert_payload"):
+            if self._client.error is not None:
+                raise self._client.error
+            payload = self._upsert_payload
+            self._client.upsert_calls.append((payload, self._upsert_options))
+            identity = tuple(
+                payload[column] for column in ("asset_id", "provider", "observed_at")
+            )
+            if any(
+                tuple(row[column] for column in ("asset_id", "provider", "observed_at"))
+                == identity
+                for row in self._client.rows
+            ):
+                return FakeResponse([])
+            row = {
+                "id": str(uuid4()),
+                **payload,
+                "created_at": OBSERVED_AT.isoformat(),
+            }
+            self._client.rows.append(row)
+            return FakeResponse([row])
+        rows = [
+            row
+            for row in self._client.rows
+            if all(row[column] == value for column, value in self._filters)
+        ]
+        return FakeResponse(rows)
+
+
+class FakeMarketQuotesClient:
+    def __init__(self, *, error=None):
+        self.rows = []
+        self.upsert_calls = []
+        self.error = error
+
+    def table(self, name):
+        assert name == "market_quotes"
+        return FakeMarketQuotesRequest(self)
+
+
+def quote(*, observed_at=OBSERVED_AT, provider="brapi"):
+    return Quote(
+        ASSET_ID,
+        "TEST3",
+        Decimal("10.25"),
+        "BRL",
+        observed_at,
+        observed_at,
+        provider,
+        DataQuality.VALID,
+    )
 
 
 def market_data_migration() -> Path:
@@ -36,3 +131,45 @@ def test_market_data_migration_has_constraints_without_policies_or_extra_grants(
     assert "create policy" not in sql
     for privilege in ("truncate", "trigger", "references", "maintain"):
         assert f"grant {privilege}" not in sql
+
+
+def test_market_quote_insert_is_atomic_idempotent_for_its_identity():
+    client = FakeMarketQuotesClient()
+    repository = MarketQuoteRepository(client)
+
+    first = repository.create_from_quote(quote())
+    duplicate = repository.create_from_quote(quote())
+
+    assert first.created is True
+    assert duplicate.created is False
+    assert duplicate.record.id == first.record.id
+    assert len(client.rows) == 1
+    assert all(
+        options == {
+            "on_conflict": "asset_id,provider,observed_at",
+            "ignore_duplicates": True,
+        }
+        for _payload, options in client.upsert_calls
+    )
+
+
+def test_market_quote_identity_allows_different_timestamp_and_provider():
+    client = FakeMarketQuotesClient()
+    repository = MarketQuoteRepository(client)
+
+    first = repository.create_from_quote(quote())
+    different_timestamp = repository.create_from_quote(
+        quote(observed_at=OBSERVED_AT + timedelta(seconds=1))
+    )
+    different_provider = repository.create_from_quote(quote(provider="twelve_data"))
+
+    assert all(result.created for result in (first, different_timestamp, different_provider))
+    assert len(client.rows) == 3
+
+
+def test_market_quote_propagates_real_persistence_errors():
+    error = PersistenceError("unexpected unique violation")
+    with pytest.raises(PersistenceError, match="unexpected unique violation"):
+        MarketQuoteRepository(FakeMarketQuotesClient(error=error)).create_from_quote(
+            quote()
+        )

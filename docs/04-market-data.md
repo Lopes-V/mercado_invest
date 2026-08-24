@@ -63,6 +63,16 @@ O adapter BRAPI usa os endpoints V2 `/api/v2/stocks/quote`, `/api/v2/stocks/hist
 
 O Full E2E opt-in valida o pipeline real BRAPI → modelos normalizados (`quality=None`) → Quality Engine → Supabase e o cleanup por IDs temporários exatos. Nenhum provider, engine ou ingestion inventa cotação, candle, referência de outlier ou market status.
 
+## Idempotência de cotações
+
+Uma observação em `market_quotes` é identificada por
+`(asset_id, provider, observed_at)`. A gravação usa atomicamente a constraint
+`market_quotes_identity_unique` com `ON CONFLICT DO NOTHING`: uma observação
+repetida preserva a linha original e é reportada como duplicata ignorada, não
+como falha operacional. A leitura posterior serve apenas para recuperar a
+linha que o banco já decidiu preservar; ela não protege o insert contra corrida.
+Erros que não sejam esse conflito explícito continuam a interromper a ingestão.
+
 ## Regra
 
 Dados `INVALID` nunca podem chegar à IA. Payloads de providers passam primeiro pelo adapter, modelos normalizados, qualidade e persistência; nunca entram diretamente na IA.

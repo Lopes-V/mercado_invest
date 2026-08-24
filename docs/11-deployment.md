@@ -61,6 +61,12 @@ Os jobs são registrados em ordem determinística:
 
 `JobRunner` continua responsável por `run_key` idempotente e latest-slot-only. Assim um GitHub Actions atrasado não tenta reproduzir todos os slots perdidos.
 
+Quando um provider devolve a mesma última cotação, `market_quotes` também é
+idempotente por `(asset_id, provider, observed_at)`. O job registra
+`market_quote_duplicate_ignored` e termina como sucesso; a restrição
+`market_quotes_identity_unique` continua sendo a autoridade concorrente para a
+decisão de duplicata.
+
 ## Limites
 
 GitHub Actions não é infraestrutura de baixa latência e execuções `schedule` podem atrasar. O projeto não realiza trading automático; o uso é análise e alerta.

@@ -15,6 +15,7 @@ from app.market_data.quality import QualityAssessment, QualityEngine
 class QuoteIngestionResult:
     assessment: QualityAssessment
     record: MarketQuoteRecord
+    created: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +40,12 @@ class MarketDataIngestionService:
         mapping = self._mapping(asset_id)
         quote = self._provider.get_quote(QuoteRequest(asset_id, mapping.provider_symbol))
         assessment = self._quality_engine.assess_quote(quote, evaluated_at=evaluated_at, reference_price=reference_price)
-        return QuoteIngestionResult(assessment=assessment, record=self._quotes.create_from_quote(assessment.data))
+        saved = self._quotes.create_from_quote(assessment.data)
+        return QuoteIngestionResult(
+            assessment=assessment,
+            record=saved.record,
+            created=saved.created,
+        )
 
     def ingest_history(self, asset_id: UUID, interval: CandleInterval, start: datetime, end: datetime, *, evaluated_at: datetime) -> HistoryIngestionResult:
         mapping = self._mapping(asset_id)

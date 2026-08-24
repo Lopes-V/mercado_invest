@@ -24,7 +24,7 @@ class Provider:
 class Symbols:
     def get_by_asset_and_provider(self,*_):return SimpleNamespace(provider="deterministic",provider_symbol="ANY")
 class Quotes:
-    def create_from_quote(self,q):return SimpleNamespace(id=uuid4(),asset_id=q.asset_id,provider=q.provider,provider_symbol=q.provider_symbol,price=q.price,currency_code=q.currency_code,observed_at=q.timestamp,received_at=q.received_at,quality=q.quality.value)
+    def create_from_quote(self,q):return SimpleNamespace(record=SimpleNamespace(id=uuid4(),asset_id=q.asset_id,provider=q.provider,provider_symbol=q.provider_symbol,price=q.price,currency_code=q.currency_code,observed_at=q.timestamp,received_at=q.received_at,quality=q.quality.value),created=True)
 class Candles:
     def __init__(self):self.rows=[]
     def create_many(self,items):
