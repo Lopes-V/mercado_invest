@@ -12,6 +12,22 @@ ETAPA 5 — Portfolio
 
 EM ANDAMENTO
 
+## Manutenção autorizada em andamento
+
+### M-2026-08-25 — Corrigir mapping BRAPI ELET3 -> AXIA3 e melhorar observabilidade de mudanças de ticker
+
+#### Escopo autorizado
+
+- [x] Revalidar identidade, constraints e referências do asset antes da alteração.
+- [x] Atualizar exclusivamente o mapping BRAPI existente de `ELET3` para `AXIA3`, preservando o mesmo `asset_id` e o histórico.
+- [x] Manter `assets.symbol = ELET3` fora desta manutenção, pendente de revisão arquitetural específica.
+- [x] Preservar a rejeição de mudança de ticker no adapter BRAPI e registrar `requested_symbol`, `returned_symbol` e `changed` no erro.
+- [x] Cobrir identidade sem mudança, rename, divergência com `changed=false`, mapping `AXIA3` válido e regressão de idempotência.
+- [x] Validar suíte, checks existentes e execução local.
+- [ ] Validar todos os mappings BRAPI e o workflow remoto com credencial BRAPI válida e código publicado.
+
+Limitação atual: o ambiente local não possui `BRAPI_TOKEN`; o provider respondeu `401 MISSING_TOKEN` na varredura remota. Esse erro permanece fatal e não é convertido em sucesso.
+
 ## Etapa 1 concluída
 
 - [x] 1.1 Bootstrap Python

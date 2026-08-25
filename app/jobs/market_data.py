@@ -3,6 +3,7 @@ from datetime import timedelta
 from app.database.repositories.market_data import ProviderSymbolRepository
 from app.jobs.models import JobContext, JobResult, ensure_job_name
 from app.market_data.contracts import MarketDataProvider
+from app.market_data.errors import ProviderResponseError
 from app.market_data.ingestion import MarketDataIngestionService
 from app.market_data.models import CandleInterval
 from app.monitoring.logger import get_logger
@@ -23,9 +24,19 @@ class MarketQuoteCollectionJob:
         mappings = self._provider_symbols.list_active_by_provider(self._provider.name)
         processed = 0
         for mapping in mappings:
-            result = self._ingestion.ingest_quote(
-                mapping.asset_id, evaluated_at=context.started_at
-            )
+            try:
+                result = self._ingestion.ingest_quote(
+                    mapping.asset_id, evaluated_at=context.started_at
+                )
+            except ProviderResponseError as exc:
+                get_logger().error(
+                    "market_quote_provider_response_error job_name=%s asset_id=%s provider=%s error=%s",
+                    self.name,
+                    mapping.asset_id,
+                    self._provider.name,
+                    exc,
+                )
+                raise
             if not result.created:
                 get_logger().info(
                     "market_quote_duplicate_ignored job_name=%s asset_id=%s provider=%s observed_at=%s",

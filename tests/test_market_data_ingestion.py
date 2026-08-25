@@ -3,11 +3,14 @@ from decimal import Decimal
 from types import SimpleNamespace
 from uuid import UUID
 
+import httpx
 import pytest
 
 from app.market_data.errors import MarketDataIngestionError, ProviderError
+from app.market_data.http import ProviderHttpClient
 from app.market_data.ingestion import MarketDataIngestionService
 from app.market_data.models import CandleInterval, Quote
+from app.market_data.providers import BrapiProvider
 from app.market_data.quality import QualityEngine, QualityPolicy
 
 
@@ -87,6 +90,46 @@ def test_ingestion_rejects_missing_or_wrong_provider_mapping():
 def test_provider_error_propagates_without_persistence():
     with pytest.raises(ProviderError):
         service(Provider(error=ProviderError("failed"))).ingest_quote(ASSET_ID, evaluated_at=NOW)
+
+
+def test_quote_ingestion_processes_axia3_mapping_when_provider_identity_matches():
+    payload = {
+        "results": [
+            {
+                "requestedSymbol": "AXIA3",
+                "symbol": "AXIA3",
+                "changed": False,
+                "data": {
+                    "regularMarketPrice": 10,
+                    "currency": "BRL",
+                    "regularMarketTime": int((NOW - timedelta(minutes=1)).timestamp()),
+                },
+            }
+        ]
+    }
+    provider = BrapiProvider(
+        ProviderHttpClient(
+            base_url="https://brapi.dev",
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json=payload)),
+            sleep=lambda _: None,
+        ),
+        clock=lambda: NOW,
+    )
+    quotes = Quotes()
+    ingestion = MarketDataIngestionService(
+        provider=provider,
+        quality_engine=engine(),
+        provider_symbols=Symbols(
+            SimpleNamespace(provider="brapi", provider_symbol="AXIA3")
+        ),
+        quotes=quotes,
+        candles=Candles(),
+    )
+
+    result = ingestion.ingest_quote(ASSET_ID, evaluated_at=NOW)
+
+    assert result.created is True
+    assert quotes.saved[0].provider_symbol == "AXIA3"
 
 
 def test_empty_history_is_explicit_and_not_persisted():

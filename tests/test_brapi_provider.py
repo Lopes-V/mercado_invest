@@ -144,15 +144,48 @@ def test_quote_rejects_missing_or_invalid_fields(payload):
         provider_for(payload).get_quote(QuoteRequest(ASSET_ID, "PETR4"))
 
 
-@pytest.mark.parametrize(
-    "changes",
-    [{"changed": True}, {"symbol": "PETR4F"}, {"requestedSymbol": "PETR4F"}],
-)
-def test_quote_rejects_ticker_rename_or_identity_mismatch(changes):
-    with pytest.raises(ProviderResponseError, match="reavaliação"):
-        provider_for(quote_payload(**changes)).get_quote(
-            QuoteRequest(ASSET_ID, "PETR4")
+def test_quote_rejects_changed_ticker_with_observable_identity_details():
+    with pytest.raises(
+        ProviderResponseError,
+        match=(
+            "requested_symbol=ELET3 returned_symbol=AXIA3 changed=true"
+        ),
+    ):
+        provider_for(
+            quote_payload(
+                requestedSymbol="ELET3",
+                symbol="AXIA3",
+                changed=True,
+            )
+        ).get_quote(QuoteRequest(ASSET_ID, "ELET3"))
+
+
+def test_quote_rejects_divergent_symbol_even_when_provider_reports_unchanged():
+    with pytest.raises(
+        ProviderResponseError,
+        match=(
+            "requested_symbol=ELET3 returned_symbol=AXIA3 changed=false"
+        ),
+    ):
+        provider_for(
+            quote_payload(
+                requestedSymbol="ELET3",
+                symbol="AXIA3",
+                changed=False,
+            )
+        ).get_quote(QuoteRequest(ASSET_ID, "ELET3"))
+
+
+def test_quote_accepts_axia3_when_mapping_and_provider_identity_match():
+    quote = provider_for(
+        quote_payload(
+            requestedSymbol="AXIA3",
+            symbol="AXIA3",
+            changed=False,
         )
+    ).get_quote(QuoteRequest(ASSET_ID, "AXIA3"))
+
+    assert quote.provider_symbol == "AXIA3"
 
 
 def test_history_normalizes_ohlcv_and_nullable_optional_fields():

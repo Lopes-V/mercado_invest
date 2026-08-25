@@ -203,7 +203,12 @@ def _ensure_identity(result: Mapping[str, object], expected_symbol: str) -> None
         _required(result, "requestedSymbol"), "requestedSymbol"
     )
     if changed or symbol != expected_symbol or requested_symbol != expected_symbol:
-        raise ProviderResponseError("ticker BRAPI mudou e requer reavaliação do mapping")
+        raise ProviderResponseError(
+            "BRAPI ticker mapping changed: "
+            f"requested_symbol={requested_symbol} "
+            f"returned_symbol={symbol} "
+            f"changed={str(changed).lower()}"
+        )
 
 
 def _candle_from_point(

@@ -7,6 +7,7 @@ import pytest
 
 from app.jobs.market_data import MarketHistoryCollectionJob, MarketQuoteCollectionJob
 from app.jobs.models import JobContext, JobTrigger
+from app.market_data.errors import ProviderResponseError
 from app.market_data.models import CandleInterval
 
 
@@ -24,10 +25,13 @@ class Symbols:
 
 
 class Ingestion:
-    def __init__(self, error_at=None, *, quote_created=True): self.error_at, self.quote_created, self.quotes, self.histories = error_at, quote_created, [], []
+    def __init__(self, error_at=None, *, error=None, quote_created=True): self.error_at, self.error, self.quote_created, self.quotes, self.histories = error_at, error, quote_created, [], []
     def ingest_quote(self, asset_id, *, evaluated_at):
         self.quotes.append((asset_id, evaluated_at))
-        if asset_id == self.error_at: raise RuntimeError("quote failure")
+        if asset_id == self.error_at:
+            if self.error is not None:
+                raise self.error
+            raise RuntimeError("quote failure")
         return SimpleNamespace(
             created=self.quote_created,
             record=SimpleNamespace(
@@ -69,6 +73,26 @@ def test_quote_collection_ignores_persisted_duplicate_without_failing(caplog):
     with caplog.at_level(logging.INFO, logger="investment_bot"):
         assert job.execute(CONTEXT).processed_count == 1
     assert "market_quote_duplicate_ignored job_name=market_quotes:fake" in caplog.text
+
+
+def test_quote_collection_logs_asset_id_before_propagating_identity_error(caplog):
+    mapping = MAPPINGS[:1]
+    ingestion = Ingestion(
+        error_at=mapping[0].asset_id,
+        error=ProviderResponseError(
+            "BRAPI ticker mapping changed: requested_symbol=ELET3 returned_symbol=AXIA3 changed=true"
+        ),
+    )
+    job = MarketQuoteCollectionJob(
+        provider=Provider(), ingestion=ingestion, provider_symbols=Symbols(mapping)
+    )
+
+    with caplog.at_level(logging.ERROR, logger="investment_bot"):
+        with pytest.raises(ProviderResponseError, match="requested_symbol=ELET3"):
+            job.execute(CONTEXT)
+
+    assert f"asset_id={mapping[0].asset_id}" in caplog.text
+    assert "market_quote_provider_response_error" in caplog.text
 
 
 def test_history_collection_uses_explicit_window_interval_and_fails_fast():
