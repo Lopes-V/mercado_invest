@@ -36,11 +36,13 @@ class AlertService:
     @staticmethod
     def message(*, asset: str, timestamp: datetime, price: Decimal, level: OpportunityLevel, score: Decimal, factors: tuple[str,...], risks: tuple[str,...]) -> str:
         return f"Asset: {asset}\nTimestamp: {timestamp.isoformat()}\nValidated price: {price}\nLevel: {level.value}\nScore: {score}\nFactors: {', '.join(factors) or 'none'}\nRisks: {', '.join(risks) or 'none'}"
-    def send(self, *, asset_id: UUID, opportunity_id: UUID, recipient_id: int, recipient_authorized: bool, level: OpportunityLevel, quality: DataQuality, decided_at: datetime, asset: str, timestamp: datetime, price: Decimal, score: Decimal, factors: tuple[str,...]=(), risks: tuple[str,...]=(), production_ready: bool=False, automation_enabled: bool=False, dry_run: bool=False, message_text: str | None = None):
+    def cooldown_snapshot(self, asset_id: UUID):
+        return self._repository.get_latest_sent_for_asset(asset_id)
+    def send(self, *, asset_id: UUID, opportunity_id: UUID, recipient_id: int, recipient_authorized: bool, level: OpportunityLevel, quality: DataQuality, decided_at: datetime, asset: str, timestamp: datetime, price: Decimal, score: Decimal, factors: tuple[str,...]=(), risks: tuple[str,...]=(), production_ready: bool=False, automation_enabled: bool=False, dry_run: bool=False, message_text: str | None = None, cooldown_reference=None):
         key=self.dedupe_key(asset_id=asset_id,opportunity_id=opportunity_id,recipient_id=recipient_id,evaluated_at=decided_at)
         existing=self._repository.get_by_dedupe_key(key)
         if existing is not None:return existing
-        previous=self._repository.get_latest_sent_for_asset(asset_id)
+        previous = cooldown_reference if cooldown_reference is not None else self._repository.get_latest_sent_for_asset(asset_id)
         last_sent=getattr(previous,"sent_at",None) if previous else None
         decision=(self._engine.decide(level=level,quality=quality,last_sent_at=last_sent,decided_at=decided_at,recipient_authorized=recipient_authorized) if dry_run else (AlertDecision(False,"production_gate") if not production_ready or not automation_enabled else self._engine.decide(level=level,quality=quality,last_sent_at=last_sent,decided_at=decided_at,recipient_authorized=recipient_authorized)))
         alert=self._repository.create_pending(asset_id=asset_id,opportunity_id=opportunity_id,channel="telegram",dedupe_key=key,decided_at=decided_at)

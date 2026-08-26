@@ -132,7 +132,7 @@ class AutomatedInvestmentPipelineJob:
         start, end = context.scheduled_for - self._lookback, context.scheduled_for
         processed = quality_blocked = gemini_calls = gemini_avoided = 0
         alerts_rendered = alerts_sent = alerts_suppressed = 0
-        summaries_rendered = summaries_sent = 0
+        summaries_rendered = summaries_simulated = summaries_sent = 0
         counts = {level.value: 0 for level in OpportunityLevel}
         ranked: list[tuple[tuple, SummaryCandidate]] = []
         logger = get_logger()
@@ -200,8 +200,9 @@ class AutomatedInvestmentPipelineJob:
                 indicators = tuple((name, str(value)) for name, value in metrics.items())
                 alert_text = TelegramMessageFormatter.render_opportunity_alert(OpportunityAlertContent(asset.symbol, str(quote.price), str(assessment.score), assessment.level.value, quote.observed_at.isoformat(), indicators, self._criteria(policy, set(assessment.reasons)) if policy else (), getattr(ai_response, "summary", None), getattr(ai_response, "positive_factors", ()), getattr(ai_response, "negative_factors", ()), getattr(ai_response, "risks", ())))
                 alerts_rendered += len(self._recipient_ids)
+                cooldown_snapshot = self._alert_service.cooldown_snapshot(mapping.asset_id) if hasattr(self._alert_service, "cooldown_snapshot") else None
                 for recipient_id in self._recipient_ids:
-                    alert_result = self._alert_service.send(asset_id=mapping.asset_id, opportunity_id=opportunity.id, recipient_id=recipient_id, recipient_authorized=True, level=assessment.level, quality=quote_quality, decided_at=context.started_at, asset=asset.symbol, timestamp=quote.observed_at, price=quote.price, score=assessment.score, factors=getattr(ai_response, "positive_factors", ()), risks=getattr(ai_response, "risks", ()), production_ready=self._production_ready, automation_enabled=self._automation_enabled, dry_run=self._dry_run, message_text=alert_text)
+                    alert_result = self._alert_service.send(asset_id=mapping.asset_id, opportunity_id=opportunity.id, recipient_id=recipient_id, recipient_authorized=True, level=assessment.level, quality=quote_quality, decided_at=context.started_at, asset=asset.symbol, timestamp=quote.observed_at, price=quote.price, score=assessment.score, factors=getattr(ai_response, "positive_factors", ()), risks=getattr(ai_response, "risks", ()), production_ready=self._production_ready, automation_enabled=self._automation_enabled, dry_run=self._dry_run, message_text=alert_text, cooldown_reference=cooldown_snapshot)
                     if getattr(alert_result, "status", "") == "SENT":
                         alerts_sent += 1
                     else:
@@ -215,7 +216,10 @@ class AutomatedInvestmentPipelineJob:
             summaries_rendered += 1
             for recipient_id in self._recipient_ids:
                 self._summary_sender.send_message(recipient_id, summary_text)
-            summaries_sent += len(self._recipient_ids)
-            logger.info("pipeline_summary_rendered analyzed=%s quality_blocked=%s rendered=%s sent=%s dry_run=%s", processed, quality_blocked, summaries_rendered, summaries_sent, self._dry_run)
-        logger.info("pipeline_completed considered=%s analyzed=%s quality_blocked=%s levels=%s gemini_calls=%s gemini_calls_avoided=%s alerts_rendered=%s alerts_sent=%s alerts_suppressed=%s summaries_rendered=%s summaries_sent=%s dry_run=%s", len(mappings), processed, quality_blocked, counts, gemini_calls, gemini_avoided, alerts_rendered, alerts_sent, alerts_suppressed, summaries_rendered, summaries_sent, self._dry_run)
+            if self._dry_run:
+                summaries_simulated += len(self._recipient_ids)
+            else:
+                summaries_sent += len(self._recipient_ids)
+            logger.info("pipeline_summary_rendered analyzed=%s skipped=%s rendered=%s simulated=%s sent=%s dry_run=%s", processed, quality_blocked, summaries_rendered, summaries_simulated, summaries_sent, self._dry_run)
+        logger.info("pipeline_completed considered=%s analyzed=%s skipped=%s levels=%s gemini_calls=%s gemini_calls_avoided=%s alerts_rendered=%s alerts_sent=%s alerts_suppressed=%s summaries_rendered=%s summaries_simulated=%s summaries_sent=%s dry_run=%s", len(mappings), processed, quality_blocked, counts, gemini_calls, gemini_avoided, alerts_rendered, alerts_sent, alerts_suppressed, summaries_rendered, summaries_simulated, summaries_sent, self._dry_run)
         return JobResult(processed_count=processed)

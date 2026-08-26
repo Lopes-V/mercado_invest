@@ -46,7 +46,7 @@ class TelegramMessageFormatter:
             "",
             f"Ativos considerados: {summary.considered}",
             f"Analisados com sucesso: {summary.analyzed}",
-            f"Bloqueados por qualidade: {summary.quality_blocked}",
+            f"Ignorados/bloqueados: {summary.quality_blocked}",
         ]
         for level, count in summary.levels:
             lines.append(f"{level}: {count}")
