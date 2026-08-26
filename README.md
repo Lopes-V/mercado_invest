@@ -19,7 +19,7 @@ Etapas 0–15 aplicáveis implementadas e validadas; Gemini, Twelve Data EUA e T
 
 ## Pipeline
 
-Market Data -> Quality -> Analysis -> Gemini -> Opportunity -> Alert -> Telegram
+Market Data -> Quality -> Analysis -> Deterministic Pre-filter -> summary/alert flow -> Telegram
 
 A IA não define score financeiro, não inventa dados ausentes e não executa compra/venda. Dados não `VALID` bloqueiam o pipeline antes da IA.
 

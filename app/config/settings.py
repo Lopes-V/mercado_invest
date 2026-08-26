@@ -33,6 +33,12 @@ class Settings:
 
     telegram_bot_token: str | None = field(repr=False)
     telegram_allowed_user_ids: frozenset[int]
+    telegram_alert_chat_ids: tuple[int, ...] = ()
+    telegram_summary_enabled: bool = True
+    telegram_summary_top_n: int = 5
+    pipeline_simulation_enabled: bool = False
+    telegram_dry_run: bool = False
+    dry_run_allow_ai: bool = False
     brapi_token: str | None = None
     gemini_api_key: str | None = field(default=None, repr=False)
     gemini_model: str | None = None
@@ -113,6 +119,25 @@ def parse_telegram_allowed_user_ids(raw: str | None) -> frozenset[int]:
     return frozenset(user_ids)
 
 
+def parse_telegram_alert_chat_ids(raw: str | None) -> tuple[int, ...]:
+    """Parse ordered Telegram destinations; group/channel IDs may be negative."""
+    if raw is None or not raw.strip():
+        return ()
+    chat_ids: list[int] = []
+    for item in raw.split(","):
+        value = item.strip()
+        try:
+            chat_id = int(value)
+        except ValueError as exc:
+            raise ValueError(f"TELEGRAM_ALERT_CHAT_IDS contém valor inválido: {value}") from exc
+        if chat_id == 0:
+            raise ValueError("TELEGRAM_ALERT_CHAT_IDS deve conter apenas chat IDs não-zero")
+        if chat_id in chat_ids:
+            raise ValueError("TELEGRAM_ALERT_CHAT_IDS não pode conter valores duplicados")
+        chat_ids.append(chat_id)
+    return tuple(chat_ids)
+
+
 def _optional_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None or not value.strip():
@@ -134,6 +159,13 @@ def _positive_int(name: str, default: int) -> int:
         raise ValueError(f"{name} deve ser inteiro") from exc
     if value <= 0:
         raise ValueError(f"{name} deve ser positivo")
+    return value
+
+
+def _bounded_positive_int(name: str, default: int, *, maximum: int) -> int:
+    value = _positive_int(name, default)
+    if value > maximum:
+        raise ValueError(f"{name} deve estar entre 1 e {maximum}")
     return value
 
 
@@ -184,6 +216,10 @@ def get_settings() -> Settings:
     telegram_allowed_user_ids = parse_telegram_allowed_user_ids(
         os.getenv("TELEGRAM_ALLOWED_USER_IDS", "")
     )
+    if get_optional_env("OPPORTUNITY_RULES_JSON") is not None:
+        raise ValueError(
+            "OPPORTUNITY_RULES_JSON foi descontinuada; use uma frozen policy por versão"
+        )
 
     return Settings(
         environment=environment,
@@ -192,6 +228,18 @@ def get_settings() -> Settings:
         supabase_secret_key=supabase_secret_key,
         telegram_bot_token=telegram_bot_token,
         telegram_allowed_user_ids=telegram_allowed_user_ids,
+        telegram_alert_chat_ids=parse_telegram_alert_chat_ids(
+            os.getenv("TELEGRAM_ALERT_CHAT_IDS", "")
+        ),
+        telegram_summary_enabled=_optional_bool("TELEGRAM_SUMMARY_ENABLED", True),
+        telegram_summary_top_n=_bounded_positive_int(
+            "TELEGRAM_SUMMARY_TOP_N", 5, maximum=10
+        ),
+        pipeline_simulation_enabled=_optional_bool(
+            "PIPELINE_SIMULATION_ENABLED", False
+        ),
+        telegram_dry_run=_optional_bool("TELEGRAM_DRY_RUN", False),
+        dry_run_allow_ai=_optional_bool("DRY_RUN_ALLOW_AI", False),
         brapi_token=get_optional_env("BRAPI_TOKEN"),
         gemini_api_key=get_optional_env("GEMINI_API_KEY"),
         gemini_model=get_optional_env("GEMINI_MODEL"),

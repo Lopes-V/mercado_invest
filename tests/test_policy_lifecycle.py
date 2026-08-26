@@ -262,3 +262,34 @@ def test_alert_is_suppressed_until_production_and_automation_gates_are_true():
     )
     assert result.status == "SUPPRESSED"
     assert result.reason == "production_gate"
+
+
+def test_alert_dry_run_renders_without_external_send_and_uses_recipient_dedupe():
+    class Alerts:
+        def __init__(self): self.rows = []
+        def get_by_dedupe_key(self, key): return next((row for row in self.rows if row.key == key), None)
+        def get_latest_sent_for_asset(self, _asset): return None
+        def create_pending(self, **payload):
+            row = SimpleNamespace(id=uuid4(), key=payload["dedupe_key"])
+            self.rows.append(row)
+            return row
+        def mark_suppressed(self, *, alert_id, reason): return SimpleNamespace(id=alert_id, status="SUPPRESSED", reason=reason)
+        def mark_sent(self, **_payload): raise AssertionError("dry-run não deve marcar SENT")
+        def mark_failed(self, **_payload): raise AssertionError("não deve falhar")
+    class Sender:
+        def __init__(self): self.messages = []
+        def send_message(self, chat_id, text): self.messages.append((chat_id, text))
+    repository, sender = Alerts(), Sender()
+    service = AlertService(engine=AlertEngine(AlertPolicy()), repository=repository, sender=sender)
+    kwargs = dict(
+        asset_id=ASSET_A, opportunity_id=uuid4(), recipient_authorized=True,
+        level=OpportunityLevel.INTERESTING, quality=DataQuality.VALID,
+        decided_at=NOW, asset="TEST", timestamp=NOW, price=Decimal("100"),
+        score=Decimal("60"), production_ready=False, automation_enabled=False,
+        dry_run=True,
+    )
+    first = service.send(recipient_id=1, **kwargs)
+    second = service.send(recipient_id=2, **kwargs)
+    assert first.status == second.status == "SUPPRESSED"
+    assert [item[0] for item in sender.messages] == [1, 2]
+    assert len(repository.rows) == 2

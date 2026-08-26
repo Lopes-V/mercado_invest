@@ -14,6 +14,15 @@ class FrozenPolicyError(ValueError):
     """A persisted policy is not safe to execute in shadow mode."""
 
 
+def validate_production_frozen_policy(policy: OpportunityPolicy) -> None:
+    """Reject legacy policies where AI was encoded as financial evidence."""
+    if any(rule.evidence_category == EvidenceCategory.AI_CONTEXT.value for rule in policy.rules):
+        raise FrozenPolicyError(
+            "policy com AI_CONTEXT pertence ao modelo legado e é incompatível "
+            "com o novo pipeline determinístico"
+        )
+
+
 def load_frozen_opportunity_policy(
     record: FrozenOpportunityPolicyRecord,
     *,

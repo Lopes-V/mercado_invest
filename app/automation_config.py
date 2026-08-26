@@ -151,17 +151,30 @@ def build_opportunity_policy(settings: Settings) -> OpportunityPolicy:
 def validate_automation_settings(settings: Settings) -> None:
     if not settings.automated_pipeline_enabled:
         return
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY é obrigatória para automação")
-    if not settings.gemini_model:
-        raise ValueError("GEMINI_MODEL é obrigatório para automação")
-    if not settings.telegram_bot_token:
-        raise ValueError("TELEGRAM_BOT_TOKEN é obrigatória para automação")
-    if len(settings.telegram_allowed_user_ids) != 1:
-        raise ValueError(
-            "automação exige exatamente um TELEGRAM_ALLOWED_USER_IDS; "
-            "o schema atual de alerts possui dedupe por oportunidade, não por destinatário"
-        )
+    if not settings.telegram_alert_chat_ids:
+        raise ValueError("TELEGRAM_ALERT_CHAT_IDS é obrigatório para automação")
+    if settings.pipeline_simulation_enabled:
+        if not settings.telegram_dry_run:
+            raise ValueError("simulação exige TELEGRAM_DRY_RUN=true")
+        if settings.automation_enabled or settings.production_ready:
+            raise ValueError(
+                "simulação não pode combinar gates de produção ativos"
+            )
+        if settings.dry_run_allow_ai and (
+            not settings.gemini_api_key or not settings.gemini_model
+        ):
+            raise ValueError(
+                "DRY_RUN_ALLOW_AI=true exige GEMINI_API_KEY e GEMINI_MODEL"
+            )
+    else:
+        if settings.telegram_dry_run:
+            raise ValueError("TELEGRAM_DRY_RUN exige PIPELINE_SIMULATION_ENABLED=true")
+        if not settings.gemini_api_key:
+            raise ValueError("GEMINI_API_KEY é obrigatória para automação")
+        if not settings.gemini_model:
+            raise ValueError("GEMINI_MODEL é obrigatório para automação")
+        if not settings.telegram_bot_token:
+            raise ValueError("TELEGRAM_BOT_TOKEN é obrigatória para automação")
     supported = {"brapi", "twelve_data"}
     unknown = set(settings.automated_pipeline_providers) - supported
     if unknown:
@@ -176,7 +189,10 @@ def validate_automation_settings(settings: Settings) -> None:
         raise ValueError(
             "TWELVE_DATA_API_KEY é obrigatória quando twelve_data está na automação"
         )
-    build_opportunity_policy(settings)
+    if not settings.opportunity_policy_version:
+        raise ValueError(
+            "OPPORTUNITY_POLICY_VERSION é obrigatório quando a automação está ativa"
+        )
 
 
 def validate_shadow_settings(settings: Settings) -> None:

@@ -11,7 +11,8 @@ Um único indicador não deve gerar alerta financeiro. A IA não define o score 
 market data
 -> quality
 -> análise determinística
--> Gemini
+-> deterministic pre-filter
+-> Gemini (somente contexto para candidatos)
 -> opportunity engine
 -> alert engine
 -> Telegram
@@ -38,7 +39,7 @@ Shadow mode persiste previsões e outcomes futuros, mas não invoca `AlertServic
 
 ## Policy de oportunidade
 
-A automação não contém thresholds financeiros hardcoded. As regras são recebidas por `OPPORTUNITY_RULES_JSON` e versionadas por `OPPORTUNITY_POLICY_VERSION`. Isso permite calibrar a policy por backtesting sem alterar o código do pipeline.
+A produção carrega exclusivamente a frozen policy persistida indicada por `OPPORTUNITY_POLICY_VERSION`; `OPPORTUNITY_RULES_JSON` é legado e rejeitado.
 
 ## Cooldown e dedupe
 

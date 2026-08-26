@@ -5,6 +5,7 @@ from app.config.settings import (
     LogLevel,
     get_settings,
     parse_telegram_allowed_user_ids,
+    parse_telegram_alert_chat_ids,
 )
 
 
@@ -231,3 +232,34 @@ def test_settings_read_telegram_allowed_users(
             456,
         })
     )
+
+
+def test_alert_chat_ids_preserve_order_and_allow_group_ids():
+    assert parse_telegram_alert_chat_ids("-1002,456,-1003") == (-1002, 456, -1003)
+
+
+def test_alert_chat_ids_reject_zero_and_duplicates():
+    with pytest.raises(ValueError, match="chat IDs"):
+        parse_telegram_alert_chat_ids("0")
+    with pytest.raises(ValueError, match="duplicados"):
+        parse_telegram_alert_chat_ids("12,12")
+
+
+def test_settings_read_summary_and_explicit_simulation(monkeypatch):
+    set_required_env(monkeypatch)
+    monkeypatch.setenv("TELEGRAM_ALERT_CHAT_IDS", "-100,200")
+    monkeypatch.setenv("TELEGRAM_SUMMARY_TOP_N", "3")
+    monkeypatch.setenv("PIPELINE_SIMULATION_ENABLED", "true")
+    monkeypatch.setenv("TELEGRAM_DRY_RUN", "true")
+    settings = get_settings()
+    assert settings.telegram_alert_chat_ids == (-100, 200)
+    assert settings.telegram_summary_top_n == 3
+    assert settings.pipeline_simulation_enabled is True
+    assert settings.telegram_dry_run is True
+
+
+def test_legacy_opportunity_rules_are_rejected(monkeypatch):
+    set_required_env(monkeypatch)
+    monkeypatch.setenv("OPPORTUNITY_RULES_JSON", "[]")
+    with pytest.raises(ValueError, match="descontinuada"):
+        get_settings()

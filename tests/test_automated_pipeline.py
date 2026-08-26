@@ -2,13 +2,14 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
+import pytest
 
 from app.ai import AIAnalysisResponse, AIClassification
 from app.analysis import AnalysisMetric
 from app.jobs.investment_pipeline import AutomatedInvestmentPipelineJob
 from app.jobs.models import JobContext, JobTrigger
 from app.market_data.models import CandleInterval
-from app.opportunity import OpportunityAssessment, OpportunityLevel
+from app.opportunity import EvidenceCategory, MetricOperator, MetricRule, OpportunityAssessment, OpportunityEngine, OpportunityLevel, OpportunityPolicy, OpportunityPreFilter, OpportunityService as DomainOpportunityService
 
 
 NOW = datetime(2026, 8, 21, 18, 0, tzinfo=UTC)
@@ -201,3 +202,60 @@ def test_pipeline_blocks_non_valid_candle_before_ai():
     assert analysis.calls == 0
     assert ai.calls == 0
     assert alerts.calls == []
+
+
+class PersistedOpportunities:
+    def __init__(self):
+        self.rows = []
+
+    def create(self, **payload):
+        row = SimpleNamespace(id=uuid4(), **payload)
+        self.rows.append(row)
+        return row
+
+    def get_latest_for_asset(self, _asset_id):
+        return self.rows[-1] if self.rows else None
+
+
+class RecordingOpportunityService(DomainOpportunityService):
+    pass
+
+
+def build_prefilter_job(policy):
+    candles = Candles()
+    opportunity_repository = PersistedOpportunities()
+    service = RecordingOpportunityService(
+        engine=OpportunityEngine(policy), repository=opportunity_repository
+    )
+    analysis = AnalysisService()
+    ai = AIService()
+    alerts = Alerts()
+    job = AutomatedInvestmentPipelineJob(
+        provider_name="brapi",
+        provider_symbols=Symbols(), quotes=Quotes(), candles=candles,
+        assets=Assets(), markets=Markets(), analysis_service=analysis,
+        analyses=Analyses(candles), ai_service=ai, ai_runs=AIRuns(),
+        opportunity_service=service, opportunities=opportunity_repository,
+        alert_service=alerts, recipient_ids=(123,),
+        opportunity_pre_filter=OpportunityPreFilter(service.engine),
+        interval=CandleInterval.ONE_DAY, lookback=timedelta(days=30),
+        analysis_period=14,
+    )
+    return job, ai, alerts
+
+
+@pytest.mark.parametrize(
+    ("level", "rules", "expected_ai"),
+    [
+        (OpportunityLevel.NONE, (MetricRule("RETURN", MetricOperator.GT, Decimal("1"), Decimal("40"), EvidenceCategory.TREND.value),), 0),
+        (OpportunityLevel.WATCH, (MetricRule("RETURN", MetricOperator.GT, Decimal("0"), Decimal("20"), EvidenceCategory.TREND.value),), 0),
+        (OpportunityLevel.INTERESTING, (MetricRule("RETURN", MetricOperator.GT, Decimal("0"), Decimal("20"), EvidenceCategory.TREND.value), MetricRule("RSI", MetricOperator.GT, Decimal("50"), Decimal("20"), EvidenceCategory.MOMENTUM.value)), 1),
+        (OpportunityLevel.HIGH_INTEREST, (MetricRule("RETURN", MetricOperator.GT, Decimal("0"), Decimal("40"), EvidenceCategory.TREND.value), MetricRule("RSI", MetricOperator.GT, Decimal("50"), Decimal("40"), EvidenceCategory.MOMENTUM.value)), 1),
+    ],
+)
+def test_prefilter_controls_gemini_and_individual_alert(level, rules, expected_ai):
+    job, ai, alerts = build_prefilter_job(OpportunityPolicy("candidate-v1", rules))
+    result = job.execute(context())
+    assert result.processed_count == 1
+    assert ai.calls == expected_ai
+    assert len(alerts.calls) == (1 if level in (OpportunityLevel.INTERESTING, OpportunityLevel.HIGH_INTEREST) else 0)

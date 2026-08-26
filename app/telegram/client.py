@@ -4,16 +4,23 @@ import httpx
 class TelegramClient:
     def __init__(
         self,
-        token: str,
+        token: str | None,
         timeout: float = 10.0,
+        dry_run: bool = False,
     ) -> None:
-        self._base_url = (
-            f"https://api.telegram.org/bot{token}"
-        )
+        if not dry_run and (not isinstance(token, str) or not token.strip()):
+            raise ValueError("Telegram token é obrigatório fora do dry-run")
+        self._dry_run = dry_run
+        self._dry_run_messages: list[tuple[int, str]] = []
+        self._base_url = f"https://api.telegram.org/bot{token or ''}"
 
         self._client = httpx.Client(
             timeout=timeout,
         )
+
+    @property
+    def dry_run_messages(self) -> tuple[tuple[int, str], ...]:
+        return tuple(self._dry_run_messages)
 
     def get_me(self) -> dict:
         response = self._client.get(
@@ -78,6 +85,9 @@ class TelegramClient:
         chat_id: int,
         text: str,
     ) -> dict:
+        if self._dry_run:
+            self._dry_run_messages.append((chat_id, text))
+            return {"message_id": len(self._dry_run_messages), "dry_run": True}
         response = self._client.post(
             f"{self._base_url}/sendMessage",
             json={

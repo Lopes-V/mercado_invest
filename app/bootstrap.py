@@ -3,12 +3,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from app.ai import AIService, GeminiProvider
 from app.alerts import AlertEngine, AlertPolicy, AlertService
 from app.analysis import AnalysisEngine, AnalysisService
 from app.automation_config import (
-    build_opportunity_policy,
     build_quality_policy,
     validate_automation_settings,
     validate_shadow_settings,
@@ -41,9 +41,9 @@ from app.market_data.models import CandleInterval
 from app.market_data.providers.brapi import BrapiProvider
 from app.market_data.providers.twelve_data import TwelveDataProvider
 from app.market_data.quality import QualityEngine, QualityPolicy
-from app.opportunity import OpportunityEngine, OpportunityPolicy, OpportunityService
+from app.opportunity import OpportunityEngine, OpportunityPolicy, OpportunityPreFilter, OpportunityService
 from app.shadow import ShadowService
-from app.shadow_policy import FrozenPolicyError, load_frozen_opportunity_policy
+from app.shadow_policy import FrozenPolicyError, load_frozen_opportunity_policy, validate_production_frozen_policy
 from app.telegram.client import TelegramClient
 
 
@@ -77,7 +77,12 @@ def build_application(
         and settings.automation_enabled
         and settings.production_ready
     )
+    simulation_pipeline_enabled = (
+        settings.automated_pipeline_enabled and settings.pipeline_simulation_enabled
+    )
     if production_pipeline_enabled:
+        validate_automation_settings(settings)
+    if simulation_pipeline_enabled:
         validate_automation_settings(settings)
     quality_policy = quality_policy or build_quality_policy(settings)
 
@@ -212,28 +217,29 @@ def build_application(
             )
         )
 
-    if production_pipeline_enabled:
-        if settings.gemini_api_key is None or settings.gemini_model is None:
+    if production_pipeline_enabled or simulation_pipeline_enabled:
+        if production_pipeline_enabled and (settings.gemini_api_key is None or settings.gemini_model is None):
             raise ValueError("Gemini precisa estar configurado para automação")
-        configured_policy = opportunity_policy or build_opportunity_policy(settings)
-        frozen_record = frozen_policies.get_by_version(configured_policy.version)
+        if not settings.opportunity_policy_version:
+            raise ValueError("OPPORTUNITY_POLICY_VERSION é obrigatória para a pipeline")
+        frozen_record = frozen_policies.get_by_version(settings.opportunity_policy_version)
         if frozen_record is None:
             raise ValueError("pipeline de produção requer policy congelada")
         try:
             frozen_policy = load_frozen_opportunity_policy(
                 frozen_record,
-                minimum_categories=settings.opportunity_minimum_categories,
-                max_ai_weight=settings.opportunity_max_ai_weight,
+                minimum_categories=2,
+                max_ai_weight=Decimal("0"),
                 max_age=timedelta(
                     seconds=settings.automated_pipeline_reference_max_age_seconds
                 ),
             )
         except FrozenPolicyError as exc:
             raise ValueError("pipeline de produção requer policy congelada aprovada") from exc
-        if frozen_policy.rules != configured_policy.rules:
-            raise ValueError(
-                "OPPORTUNITY_RULES_JSON diverge da policy congelada configurada"
-            )
+        try:
+            validate_production_frozen_policy(frozen_policy)
+        except FrozenPolicyError as exc:
+            raise ValueError("pipeline requer policy determinística sem AI_CONTEXT legado") from exc
         opportunity_policy = frozen_policy
         try:
             pipeline_interval = CandleInterval(
@@ -242,12 +248,14 @@ def build_application(
         except ValueError as exc:
             raise ValueError("AUTOMATED_PIPELINE_CANDLE_INTERVAL inválido") from exc
 
-        gemini = GeminiProvider(
-            api_key=settings.gemini_api_key,
-            model=settings.gemini_model,
-        )
-        telegram = TelegramClient(settings.telegram_bot_token)
-        closers.extend((gemini.close, telegram.close))
+        gemini = None
+        if production_pipeline_enabled or settings.dry_run_allow_ai:
+            if settings.gemini_api_key is None or settings.gemini_model is None:
+                raise ValueError("Gemini precisa estar configurado quando a IA está habilitada")
+            gemini = GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_model)
+            closers.append(gemini.close)
+        telegram = TelegramClient(settings.telegram_bot_token, dry_run=simulation_pipeline_enabled)
+        closers.append(telegram.close)
 
         analysis_service = AnalysisService(
             candles=candles,
@@ -255,17 +263,22 @@ def build_application(
             analyses=analyses,
             metrics=metrics,
         )
-        ai_service = AIService(
-            provider=gemini,
-            repository=ai_runs,
-            provider_name=gemini.name,
-            model=settings.gemini_model,
-            prompt_version=settings.automated_pipeline_prompt_version,
+        ai_service = (
+            AIService(
+                provider=gemini,
+                repository=ai_runs,
+                provider_name=gemini.name,
+                model=settings.gemini_model or "dry-run-disabled",
+                prompt_version=settings.automated_pipeline_prompt_version,
+            )
+            if gemini is not None
+            else None
         )
         opportunity_service = OpportunityService(
             engine=OpportunityEngine(opportunity_policy),
             repository=opportunities,
         )
+        opportunity_pre_filter = OpportunityPreFilter(opportunity_service.engine)
         alert_service = AlertService(
             engine=AlertEngine(
                 AlertPolicy(cooldown=timedelta(seconds=settings.alert_cooldown_seconds))
@@ -273,7 +286,6 @@ def build_application(
             repository=alerts,
             sender=telegram,
         )
-        recipient_id = next(iter(settings.telegram_allowed_user_ids))
         pipeline_schedule = IntervalSchedule(
             timedelta(seconds=settings.automated_pipeline_interval_seconds), anchor
         )
@@ -299,7 +311,12 @@ def build_application(
                         opportunity_service=opportunity_service,
                         opportunities=opportunities,
                         alert_service=alert_service,
-                        recipient_id=recipient_id,
+                        recipient_ids=settings.telegram_alert_chat_ids,
+                        opportunity_pre_filter=opportunity_pre_filter,
+                        summary_sender=telegram,
+                        summary_enabled=settings.telegram_summary_enabled,
+                        summary_top_n=settings.telegram_summary_top_n,
+                        dry_run=simulation_pipeline_enabled,
                         interval=pipeline_interval,
                         lookback=timedelta(
                             days=settings.automated_pipeline_lookback_days

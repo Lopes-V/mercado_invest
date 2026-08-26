@@ -16,7 +16,7 @@ jobs:
   run-safe-automation:
     # Manual dispatch is a collection smoke test unless both production gates
     # are explicitly approved in Repository Variables.
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.SHADOW_MODE_ENABLED == 'true' || (vars.AUTOMATION_ENABLED == 'true' && vars.PRODUCTION_READY == 'true') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.SHADOW_MODE_ENABLED == 'true' || vars.PIPELINE_SIMULATION_ENABLED == 'true' || (vars.AUTOMATION_ENABLED == 'true' && vars.PRODUCTION_READY == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -28,6 +28,10 @@ jobs:
 
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_ALLOWED_USER_IDS: ${{ secrets.TELEGRAM_ALLOWED_USER_IDS }}
+      TELEGRAM_ALERT_CHAT_IDS: ${{ vars.TELEGRAM_ALERT_CHAT_IDS }}
+      TELEGRAM_SUMMARY_ENABLED: ${{ vars.TELEGRAM_SUMMARY_ENABLED || 'true' }}
+      TELEGRAM_SUMMARY_TOP_N: ${{ vars.TELEGRAM_SUMMARY_TOP_N || '5' }}
+      TELEGRAM_DRY_RUN: ${{ vars.TELEGRAM_DRY_RUN || 'false' }}
 
       BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
       TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
@@ -42,9 +46,11 @@ jobs:
       MARKET_HISTORY_LOOKBACK_DAYS: '30'
       MARKET_HISTORY_CANDLE_INTERVAL: '1d'
 
-      AUTOMATED_PIPELINE_ENABLED: ${{ vars.AUTOMATION_ENABLED == 'true' && vars.PRODUCTION_READY == 'true' }}
+      AUTOMATED_PIPELINE_ENABLED: ${{ vars.PIPELINE_SIMULATION_ENABLED == 'true' || (vars.AUTOMATION_ENABLED == 'true' && vars.PRODUCTION_READY == 'true') }}
       AUTOMATION_ENABLED: ${{ vars.AUTOMATION_ENABLED || 'false' }}
       PRODUCTION_READY: ${{ vars.PRODUCTION_READY || 'false' }}
+      PIPELINE_SIMULATION_ENABLED: ${{ vars.PIPELINE_SIMULATION_ENABLED || 'false' }}
+      DRY_RUN_ALLOW_AI: ${{ vars.DRY_RUN_ALLOW_AI || 'false' }}
       SHADOW_MODE_ENABLED: ${{ vars.SHADOW_MODE_ENABLED || 'false' }}
       SHADOW_POLICY_VERSION: ${{ vars.SHADOW_POLICY_VERSION }}
       SHADOW_INTERVAL_SECONDS: ${{ vars.SHADOW_INTERVAL_SECONDS || '1800' }}
@@ -63,9 +69,6 @@ jobs:
       AUTOMATED_PIPELINE_PROMPT_VERSION: 'gemini-v1'
 
       OPPORTUNITY_POLICY_VERSION: ${{ vars.OPPORTUNITY_POLICY_VERSION }}
-      OPPORTUNITY_MINIMUM_CATEGORIES: ${{ vars.OPPORTUNITY_MINIMUM_CATEGORIES || '2' }}
-      OPPORTUNITY_MAX_AI_WEIGHT: ${{ vars.OPPORTUNITY_MAX_AI_WEIGHT || '20' }}
-      OPPORTUNITY_RULES_JSON: ${{ vars.OPPORTUNITY_RULES_JSON }}
 
       ALERT_COOLDOWN_SECONDS: ${{ vars.ALERT_COOLDOWN_SECONDS || '86400' }}
 

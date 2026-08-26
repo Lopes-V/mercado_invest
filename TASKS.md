@@ -14,6 +14,19 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-08-26 — Revisão do pipeline Opportunity / Gemini / Telegram
+
+#### Escopo autorizado
+
+- [ ] Usar exclusivamente a policy congelada aprovada por versão como fonte de regras financeiras do pipeline de produção, sem alterar `candidate-v1` ou seus thresholds.
+- [ ] Remover `OPPORTUNITY_RULES_JSON` do caminho de produção duplicado, sem alterar variáveis remotas do GitHub.
+- [ ] Inserir pré-filtro determinístico antes do Gemini; `NONE` e `WATCH` não chamam Gemini por padrão, e IA não altera score ou nível financeiro.
+- [ ] Separar summary de mercado/pipeline de alerta individual; `WATCH` pode constar somente no summary.
+- [ ] Separar autorização do bot (`TELEGRAM_ALLOWED_USER_IDS`) dos destinatários (`TELEGRAM_ALERT_CHAT_IDS`) e suportar múltiplos chat IDs.
+- [ ] Implementar dry-run de Telegram sem envio externo e preservar todos os gates reais de produção desativados.
+- [ ] Preservar o shadow deterministicamente isolado de Gemini, Telegram, `AlertService` e paper trading.
+- [ ] Atualizar configuração, workflow, documentação e testes pertinentes; não fazer merge automático.
+
 ### M-2026-08-25 — Corrigir mapping BRAPI ELET3 -> AXIA3 e melhorar observabilidade de mudanças de ticker
 
 #### Escopo autorizado

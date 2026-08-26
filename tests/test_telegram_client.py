@@ -197,3 +197,13 @@ def test_close_closes_http_client():
     client.close()
 
     assert fake_http.closed is True
+
+
+def test_dry_run_send_message_does_not_call_http():
+    client = TelegramClient(None, dry_run=True)
+    try:
+        result = client.send_message(chat_id=-100, text="simulação")
+        assert result["message_id"] == 1
+        assert client.dry_run_messages == ((-100, "simulação"),)
+    finally:
+        client.close()
