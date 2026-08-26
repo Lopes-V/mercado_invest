@@ -293,3 +293,33 @@ def test_alert_dry_run_renders_without_external_send_and_uses_recipient_dedupe()
     assert first.status == second.status == "SUPPRESSED"
     assert [item[0] for item in sender.messages] == [1, 2]
     assert len(repository.rows) == 2
+
+
+def test_alert_fanout_preserves_empty_cooldown_snapshot_for_all_recipients():
+    class Alerts:
+        def __init__(self): self.rows = []
+        def get_by_dedupe_key(self, key): return next((r for r in self.rows if r.dedupe_key == key), None)
+        def get_latest_sent_for_asset(self, _asset):
+            sent = [r for r in self.rows if r.status == "SENT"]
+            return sent[-1] if sent else None
+        def create_pending(self, **payload):
+            row = SimpleNamespace(id=uuid4(), dedupe_key=payload["dedupe_key"], status="PENDING", sent_at=None)
+            self.rows.append(row); return row
+        def mark_sent(self, *, alert_id, sent_at):
+            row = next(r for r in self.rows if r.id == alert_id); row.status = "SENT"; row.sent_at = sent_at; return row
+        def mark_suppressed(self, **_kwargs): raise AssertionError("não deveria suprimir")
+        def mark_failed(self, **_kwargs): raise AssertionError("não deveria falhar")
+    class Sender:
+        def __init__(self): self.messages = []
+        def send_message(self, chat_id, _text): self.messages.append(chat_id)
+    repository, sender = Alerts(), Sender()
+    service = AlertService(engine=AlertEngine(AlertPolicy()), repository=repository, sender=sender)
+    opportunity_id = uuid4()
+    common = dict(asset_id=ASSET_A, opportunity_id=opportunity_id, recipient_authorized=True,
+        level=OpportunityLevel.INTERESTING, quality=DataQuality.VALID, decided_at=NOW,
+        asset="TEST", timestamp=NOW, price=Decimal("100"), score=Decimal("60"),
+        production_ready=True, automation_enabled=True, cooldown_reference=None)
+    service.send(recipient_id=1, **common)
+    service.send(recipient_id=2, **common)
+    assert sender.messages == [1, 2]
+    assert len({r.dedupe_key for r in repository.rows}) == 2
