@@ -112,7 +112,6 @@ def policy_signal_observations(
             price_quality=DataQuality.VALID,
             reference_at=observation.signal_at,
             evaluated_at=observation.signal_at,
-            ai_positive=False,
         )
         if assessment.level in (OpportunityLevel.INTERESTING, OpportunityLevel.HIGH_INTEREST):
             signals.append(observation)

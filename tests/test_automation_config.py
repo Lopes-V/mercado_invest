@@ -22,6 +22,7 @@ def settings(**overrides):
         supabase_secret_key="secret",
         telegram_bot_token="telegram",
         telegram_allowed_user_ids=frozenset({123}),
+        telegram_alert_chat_ids=(123,),
         gemini_api_key="gemini",
         gemini_model="gemini-test",
         twelve_data_api_key="twelve",
@@ -55,12 +56,25 @@ def test_build_opportunity_policy_from_explicit_json():
     assert policy.rules[0].weight == Decimal("40")
 
 
-def test_automation_requires_explicit_rules_and_single_recipient():
-    with pytest.raises(ValueError, match="OPPORTUNITY_RULES_JSON"):
-        validate_automation_settings(settings(opportunity_rules_json=None))
-    with pytest.raises(ValueError, match="exatamente um"):
+def test_automation_requires_explicit_alert_recipient_not_allowed_user():
+    with pytest.raises(ValueError, match="TELEGRAM_ALERT_CHAT_IDS"):
+        validate_automation_settings(settings(telegram_alert_chat_ids=()))
+    validate_automation_settings(
+        settings(
+            telegram_alert_chat_ids=(999,),
+            telegram_allowed_user_ids=frozenset({1, 2}),
+        )
+    )
+
+
+def test_simulation_requires_explicit_dry_run_transport():
+    with pytest.raises(ValueError, match="TELEGRAM_DRY_RUN"):
         validate_automation_settings(
-            settings(telegram_allowed_user_ids=frozenset({1, 2}))
+            settings(
+                pipeline_simulation_enabled=True,
+                telegram_dry_run=False,
+                telegram_alert_chat_ids=(999,),
+            )
         )
 
 

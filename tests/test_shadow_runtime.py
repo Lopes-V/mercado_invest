@@ -17,7 +17,7 @@ from app.jobs.models import JobContext, JobTrigger
 from app.jobs.shadow import ShadowOpportunityPipelineJob
 from app.market_data.models import Candle, CandleInterval, DataQuality
 from app.shadow import ShadowService
-from app.shadow_policy import FrozenPolicyError, load_frozen_opportunity_policy
+from app.shadow_policy import FrozenPolicyError, load_frozen_opportunity_policy, validate_production_frozen_policy
 
 
 NOW = datetime(2026, 8, 21, tzinfo=UTC)
@@ -93,6 +93,23 @@ def test_frozen_loader_uses_persisted_rules_and_fails_closed():
             ),
             max_age=timedelta(days=2),
         )
+
+
+def test_production_rejects_legacy_ai_context_policy():
+    policy = load_frozen_opportunity_policy(frozen_record(), max_age=timedelta(days=2))
+    policy = policy.__class__(
+        policy.version,
+        policy.rules + (
+            policy.rules[0].__class__(
+                "AI", policy.rules[0].operator, Decimal("0"), Decimal("1"), "AI_CONTEXT"
+            ),
+        ),
+        policy.minimum_categories,
+        policy.max_ai_weight,
+        policy.max_age,
+    )
+    with pytest.raises(FrozenPolicyError, match="legado"):
+        validate_production_frozen_policy(policy)
 
 
 class _Predictions:
@@ -285,6 +302,37 @@ def test_production_job_is_not_built_without_both_execution_gates(monkeypatch):
         application.close()
 
 
+def test_explicit_simulation_builds_pipeline_without_production_gates(monkeypatch):
+    import app.bootstrap as bootstrap
+
+    monkeypatch.setattr(bootstrap, "create_supabase_client", lambda _settings: object())
+    monkeypatch.setattr(
+        bootstrap,
+        "FrozenOpportunityPolicyRepository",
+        lambda _client: SimpleNamespace(get_by_version=lambda _version: frozen_record()),
+    )
+
+    class FakeTelegram:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(bootstrap, "TelegramClient", lambda *args, **kwargs: FakeTelegram())
+    application = build_application(
+        _settings(
+            automated_pipeline_enabled=True,
+            pipeline_simulation_enabled=True,
+            telegram_dry_run=True,
+            telegram_alert_chat_ids=(123,),
+            opportunity_policy_version="candidate-v1",
+            automated_pipeline_providers=("brapi",),
+        )
+    )
+    try:
+        assert any(item.job.name.startswith("investment_pipeline:") for item in application.scheduler._jobs)
+    finally:
+        application.close()
+
+
 def test_production_requires_matching_approved_frozen_policy(monkeypatch):
     import app.bootstrap as bootstrap
 
@@ -314,6 +362,7 @@ def test_production_requires_matching_approved_frozen_policy(monkeypatch):
                 production_ready=True,
                 telegram_bot_token="telegram",
                 telegram_allowed_user_ids=frozenset({1}),
+                telegram_alert_chat_ids=(1,),
                 gemini_api_key="gemini",
                 gemini_model="gemini-model",
                 automated_pipeline_providers=("brapi",),

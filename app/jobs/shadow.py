@@ -123,7 +123,6 @@ class ShadowOpportunityPipelineJob:
                 price_quality=DataQuality.VALID,
                 reference_at=reference.observed_at,
                 evaluated_at=context.scheduled_for,
-                ai_positive=False,
             )
             if assessment.level not in (
                 OpportunityLevel.INTERESTING,
