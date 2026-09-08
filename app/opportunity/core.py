@@ -143,9 +143,9 @@ class OpportunityService:
         evaluated_at: datetime,
         ai_run_id: UUID | None = None,
     ) -> OpportunityAssessment:
-        result = self._engine.assess(
+        result = self.evaluate(
             metrics=metrics,
-            price_quality=quote_quality,
+            quote_quality=quote_quality,
             reference_at=reference_at,
             evaluated_at=evaluated_at,
         )
@@ -157,6 +157,21 @@ class OpportunityService:
             ai_run_id=ai_run_id,
         )
         return result
+
+    def evaluate(
+        self,
+        *,
+        metrics: dict[str, Decimal],
+        quote_quality: DataQuality,
+        reference_at: datetime,
+        evaluated_at: datetime,
+    ) -> OpportunityAssessment:
+        return self._engine.assess(
+            metrics=metrics,
+            price_quality=quote_quality,
+            reference_at=reference_at,
+            evaluated_at=evaluated_at,
+        )
 
     def record(
         self,

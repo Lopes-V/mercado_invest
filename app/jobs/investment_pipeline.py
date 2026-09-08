@@ -33,18 +33,6 @@ class Markets(Protocol):
     def get_by_id(self, market_id: UUID): ...
 
 
-class Analyses(Protocol):
-    def get_latest_for_asset(self, asset_id: UUID, interval: str): ...
-
-
-class AIRuns(Protocol):
-    def get_latest_for_asset(self, asset_id: UUID): ...
-
-
-class Opportunities(Protocol):
-    def get_latest_for_asset(self, asset_id: UUID): ...
-
-
 class Alerts(Protocol):
     def send(self, **kwargs): ...
 
@@ -66,11 +54,8 @@ class AutomatedInvestmentPipelineJob:
         assets: Assets,
         markets: Markets,
         analysis_service: AnalysisService,
-        analyses: Analyses,
         ai_service: AIService | None,
-        ai_runs: AIRuns,
         opportunity_service: OpportunityService,
-        opportunities: Opportunities,
         alert_service: Alerts,
         recipient_id: int | None = None,
         recipient_ids: tuple[int, ...] = (),
@@ -102,9 +87,9 @@ class AutomatedInvestmentPipelineJob:
         self._provider_name = provider_name.strip()
         self._provider_symbols, self._quotes, self._candles = provider_symbols, quotes, candles
         self._assets, self._markets = assets, markets
-        self._analysis_service, self._analyses = analysis_service, analyses
-        self._ai_service, self._ai_runs = ai_service, ai_runs
-        self._opportunity_service, self._opportunities = opportunity_service, opportunities
+        self._analysis_service = analysis_service
+        self._ai_service = ai_service
+        self._opportunity_service = opportunity_service
         self._alert_service = alert_service
         self._recipient_ids = tuple(resolved)
         self._opportunity_pre_filter = opportunity_pre_filter
@@ -165,30 +150,30 @@ class AutomatedInvestmentPipelineJob:
             if asset is None or not asset.is_active or market is None or not market.is_active:
                 quality_blocked += 1
                 continue
-            analysis = self._analysis_service.analyze(asset_id=mapping.asset_id, provider=self._provider_name, interval=self._interval, start=start, end=end, period=self._analysis_period)
-            analysis_record = self._analyses.get_latest_for_asset(mapping.asset_id, self._interval.value)
+            persisted_analysis = self._analysis_service.analyze_persisted(asset_id=mapping.asset_id, provider=self._provider_name, interval=self._interval, start=start, end=end, period=self._analysis_period)
+            analysis = persisted_analysis.result
+            analysis_record = persisted_analysis.record
             if analysis_record is None or analysis_record.reference_at != rows[-1].observed_at:
                 raise RuntimeError("analysis persistida não corresponde ao histórico analisado")
             processed += 1
             metrics = {metric.name: metric.value for metric in analysis.metrics}
             prefiltered = self._opportunity_pre_filter.assess(metrics=metrics, quote_quality=quote_quality, reference_at=analysis_record.reference_at, evaluated_at=context.started_at, symbol=asset.symbol) if self._opportunity_pre_filter else None
             if prefiltered is None:
-                assessment = self._opportunity_service.assess(asset_id=mapping.asset_id, analysis_id=analysis_record.id, metrics=metrics, quote_quality=quote_quality, reference_at=analysis_record.reference_at, evaluated_at=context.started_at)
+                assessment = self._opportunity_service.evaluate(metrics=metrics, quote_quality=quote_quality, reference_at=analysis_record.reference_at, evaluated_at=context.started_at)
             else:
                 assessment = prefiltered.assessment
             counts[assessment.level.value] += 1
             candidate_level = assessment.level in (OpportunityLevel.INTERESTING, OpportunityLevel.HIGH_INTEREST)
             should_call_ai = self._ai_service is not None and (candidate_level or (assessment.level is OpportunityLevel.WATCH and self._watch_ai_enabled))
             ai_response = None
+            ai_execution = None
             if should_call_ai:
-                ai_response = self._ai_service.analyze_live(context=ValidatedAIContext(asset_identity=asset.symbol, market=market.code, current_price=quote.price, currency_code=quote.currency_code, analysis_metrics=tuple(metrics.items()), data_timestamp=quote.observed_at, algorithm_version=analysis.algorithm_version), asset_id=mapping.asset_id, analysis_id=analysis_record.id)
+                ai_execution = self._ai_service.analyze_live_persisted(context=ValidatedAIContext(asset_identity=asset.symbol, market=market.code, current_price=quote.price, currency_code=quote.currency_code, analysis_metrics=tuple(metrics.items()), data_timestamp=quote.observed_at, algorithm_version=analysis.algorithm_version), asset_id=mapping.asset_id, analysis_id=analysis_record.id)
+                ai_response = ai_execution.response
                 gemini_calls += 1
             else:
                 gemini_avoided += 1
-            ai_run = self._ai_runs.get_latest_for_asset(mapping.asset_id) if ai_response else None
-            if prefiltered is not None:
-                self._opportunity_service.record(asset_id=mapping.asset_id, analysis_id=analysis_record.id, assessment=assessment, evaluated_at=context.started_at, ai_run_id=getattr(ai_run, "id", None))
-            opportunity = self._opportunities.get_latest_for_asset(mapping.asset_id)
+            opportunity = self._opportunity_service.record(asset_id=mapping.asset_id, analysis_id=analysis_record.id, assessment=assessment, evaluated_at=context.started_at, ai_run_id=getattr(getattr(ai_execution, "record", None), "id", None))
             if opportunity is None or opportunity.evaluated_at != context.started_at:
                 raise RuntimeError("opportunity persistida não corresponde à execução atual")
             if prefiltered is not None:

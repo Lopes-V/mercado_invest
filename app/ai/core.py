@@ -93,6 +93,16 @@ class AIAnalysisResponse:
                 raise AIError(f"{field} deve ser inteiro não negativo")
 
 
+class PersistedAIRun(Protocol):
+    id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class PersistedAIAnalysis:
+    response: AIAnalysisResponse
+    record: PersistedAIRun
+
+
 class AIProvider(Protocol):
     def analyze(self, context: ValidatedAIContext) -> AIAnalysisResponse:
         ...
@@ -151,12 +161,12 @@ class AIService:
         finished_at: datetime,
         input_tokens: int | None = None,
         output_tokens: int | None = None,
-    ) -> None:
+    ) -> PersistedAIRun:
         started = _aware(started_at, field="started_at")
         finished = _aware(finished_at, field="finished_at")
         if finished < started:
             raise AIError("timestamps de AI inválidos")
-        self._repository.create(
+        return self._repository.create(
             analysis_id=analysis_id,
             asset_id=asset_id,
             provider=self._provider_name,
@@ -205,6 +215,56 @@ class AIService:
             output_tokens=output_tokens,
         )
         return response
+
+    def analyze_persisted(
+        self,
+        *,
+        context: ValidatedAIContext,
+        asset_id: UUID,
+        started_at: datetime,
+        finished_at: datetime,
+        analysis_id: UUID | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+    ) -> PersistedAIAnalysis:
+        response = self._provider.analyze(context)
+        if not isinstance(response, AIAnalysisResponse):
+            raise AIError("provider AI retornou tipo inválido")
+        record = self._persist(
+            response=response,
+            context=context,
+            asset_id=asset_id,
+            analysis_id=analysis_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+        return PersistedAIAnalysis(response, record)
+
+    def analyze_live_persisted(
+        self,
+        *,
+        context: ValidatedAIContext,
+        asset_id: UUID,
+        analysis_id: UUID | None = None,
+    ) -> PersistedAIAnalysis:
+        """Execute a real provider call and return its exact persisted run."""
+
+        started_at = _aware(self._clock(), field="clock.started_at")
+        response = self._provider.analyze(context)
+        finished_at = _aware(self._clock(), field="clock.finished_at")
+        if not isinstance(response, AIAnalysisResponse):
+            raise AIError("provider AI retornou tipo inválido")
+        record = self._persist(
+            response=response,
+            context=context,
+            asset_id=asset_id,
+            analysis_id=analysis_id,
+            started_at=started_at,
+            finished_at=finished_at,
+        )
+        return PersistedAIAnalysis(response, record)
 
     def analyze_live(
         self,

@@ -26,7 +26,8 @@ class Provider:
 class Repository:
     def create(self, **payload):
         self.payload = payload
-        return SimpleNamespace(id=uuid4(), **payload)
+        self.record = SimpleNamespace(id=uuid4(), **payload)
+        return self.record
 
 
 def test_analyze_live_measures_real_provider_window_and_persists_usage():
@@ -57,3 +58,32 @@ def test_analyze_live_measures_real_provider_window_and_persists_usage():
     assert repository.payload["duration_ms"] == 2500
     assert repository.payload["input_tokens"] == 12
     assert repository.payload["output_tokens"] == 7
+
+
+def test_analyze_live_persisted_returns_the_exact_ai_run_created():
+    times = iter((NOW, NOW + timedelta(milliseconds=2500)))
+    repository = Repository()
+    service = AIService(
+        provider=Provider(),
+        repository=repository,
+        provider_name="gemini",
+        model="gemini-test",
+        prompt_version="v1",
+        clock=lambda: next(times),
+    )
+
+    persisted = service.analyze_live_persisted(
+        context=ValidatedAIContext(
+            asset_identity="TEST",
+            market="TEST",
+            current_price=Decimal("10"),
+            currency_code="USD",
+            analysis_metrics=(("RETURN", Decimal("0.01")),),
+            data_timestamp=NOW,
+            algorithm_version="analysis-v1",
+        ),
+        asset_id=uuid4(),
+    )
+
+    assert persisted.record is repository.record
+    assert persisted.response.classification is AIClassification.NEUTRAL

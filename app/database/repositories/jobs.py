@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 from uuid import UUID
 
@@ -54,8 +55,22 @@ class JobRunRepository:
 
     def get_latest(self, job_name: str) -> JobRunRecord | None:
         ensure_job_name(job_name)
-        query = self._client.table("job_runs").select("*").eq("job_name", job_name).order("scheduled_for", desc=True)
-        return read_one_or_none(query, operation="get latest job run", parser=JobRunRecord.from_payload)
+        response = (
+            self._client.table("job_runs")
+            .select("*")
+            .eq("job_name", job_name)
+            .order("scheduled_for", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list) or not all(
+            isinstance(row, Mapping) for row in rows
+        ):
+            raise RepositoryDataError("get latest job run retornou dados inválidos")
+        if not rows:
+            return None
+        return JobRunRecord.from_payload(rows[0])
 
     def list_stale_running(self, before: datetime) -> tuple[JobRunRecord, ...]:
         cutoff = ensure_utc_datetime(before, field="before")
