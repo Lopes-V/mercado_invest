@@ -28,6 +28,8 @@ class FakeMarketQuotesRequest:
     def __init__(self, client):
         self._client = client
         self._filters = []
+        self._limit = None
+        self._order = None
 
     def upsert(self, payload, **kwargs):
         self._upsert_payload = payload
@@ -42,7 +44,12 @@ class FakeMarketQuotesRequest:
         self._filters.append((column, value))
         return self
 
-    def limit(self, _size):
+    def order(self, column, *, desc=False):
+        self._order = (column, desc)
+        return self
+
+    def limit(self, size):
+        self._limit = size
         return self
 
     def execute(self):
@@ -72,6 +79,11 @@ class FakeMarketQuotesRequest:
             for row in self._client.rows
             if all(row[column] == value for column, value in self._filters)
         ]
+        if self._order is not None:
+            column, desc = self._order
+            rows.sort(key=lambda row: row[column], reverse=desc)
+        if self._limit is not None:
+            rows = rows[: self._limit]
         return FakeResponse(rows)
 
 
@@ -165,6 +177,21 @@ def test_market_quote_identity_allows_different_timestamp_and_provider():
 
     assert all(result.created for result in (first, different_timestamp, different_provider))
     assert len(client.rows) == 3
+
+
+def test_market_quote_get_latest_returns_most_recent_historical_quote():
+    client = FakeMarketQuotesClient()
+    repository = MarketQuoteRepository(client)
+
+    repository.create_from_quote(quote(observed_at=OBSERVED_AT))
+    newest = repository.create_from_quote(
+        quote(observed_at=OBSERVED_AT + timedelta(minutes=1))
+    )
+
+    latest = repository.get_latest(ASSET_ID, "brapi")
+
+    assert latest is not None
+    assert latest.id == newest.record.id
 
 
 def test_market_quote_propagates_real_persistence_errors():
