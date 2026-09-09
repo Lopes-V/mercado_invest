@@ -22,6 +22,9 @@ htmlcov/
 .idea/
 .vscode/
 
+# Local isolated worktrees
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
