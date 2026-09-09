@@ -45,6 +45,13 @@ A produção carrega exclusivamente a frozen policy persistida indicada por `OPP
 
 O mesmo evento não deve gerar spam. `AlertService` persiste PENDING/SENT/SUPPRESSED/FAILED, aplica cooldown e dedupe antes do envio.
 
+## Fechamento consolidado
+
+O fechamento de 22:00 BRT é deliberadamente separado do `AlertService`. Ele
+lê oportunidades, métricas, cotações `VALID` e execuções Gemini já
+persistidas, para que a mensagem seja um retrato auditável do dia. Assim, ele
+não interfere em cooldown, dedupe ou no envio de alertas individuais.
+
 O schema atual deduplica por oportunidade, não por destinatário. Por isso a automação exige exatamente um `TELEGRAM_ALLOWED_USER_IDS` enquanto não existir modelagem de destinatário em `alerts`.
 
 ## Mensagem

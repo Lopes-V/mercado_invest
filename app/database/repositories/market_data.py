@@ -115,6 +115,26 @@ class MarketQuoteRepository:
             return None
         return MarketQuoteRecord.from_payload(rows[0])
 
+    def get_latest_valid_at_or_before(
+        self, asset_id: UUID, before: datetime
+    ) -> MarketQuoteRecord | None:
+        response = (
+            self._client.table("market_quotes")
+            .select("*")
+            .eq("asset_id", str(asset_id))
+            .eq("quality", DataQuality.VALID.value)
+            .lte("observed_at", before.isoformat())
+            .order("observed_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list) or not all(isinstance(row, Mapping) for row in rows):
+            raise RepositoryDataError("get latest valid market quote retornou dados inv\u00e1lidos")
+        if not rows:
+            return None
+        return MarketQuoteRecord.from_payload(rows[0])
+
     def get_by_identity(
         self, *, asset_id: UUID, provider: str, observed_at: datetime
     ) -> MarketQuoteRecord | None:

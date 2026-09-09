@@ -10,7 +10,7 @@ from app.jobs.models import JobContext, JobResult, ensure_job_name
 from app.market_data.models import CandleInterval, DataQuality
 from app.monitoring.logger import get_logger
 from app.opportunity import OpportunityLevel, OpportunityPreFilter, OpportunityService
-from app.telegram.messages import OpportunityAlertContent, PipelineSummary, SummaryCandidate, TelegramMessageFormatter
+from app.telegram.messages import OpportunityAlertContent, TelegramMessageFormatter
 
 
 class ProviderSymbols(Protocol):
@@ -60,9 +60,6 @@ class AutomatedInvestmentPipelineJob:
         recipient_id: int | None = None,
         recipient_ids: tuple[int, ...] = (),
         opportunity_pre_filter: OpportunityPreFilter | None = None,
-        summary_sender: MessageSender | None = None,
-        summary_enabled: bool = True,
-        summary_top_n: int = 5,
         watch_ai_enabled: bool = False,
         dry_run: bool = False,
         interval: CandleInterval,
@@ -82,8 +79,6 @@ class AutomatedInvestmentPipelineJob:
             raise ValueError("lookback deve ser timedelta positivo")
         if isinstance(analysis_period, bool) or not isinstance(analysis_period, int) or analysis_period <= 0:
             raise ValueError("analysis_period deve ser inteiro positivo")
-        if isinstance(summary_top_n, bool) or not isinstance(summary_top_n, int) or not 1 <= summary_top_n <= 10:
-            raise ValueError("summary_top_n deve estar entre 1 e 10")
         self._provider_name = provider_name.strip()
         self._provider_symbols, self._quotes, self._candles = provider_symbols, quotes, candles
         self._assets, self._markets = assets, markets
@@ -93,8 +88,7 @@ class AutomatedInvestmentPipelineJob:
         self._alert_service = alert_service
         self._recipient_ids = tuple(resolved)
         self._opportunity_pre_filter = opportunity_pre_filter
-        self._summary_sender, self._summary_enabled = summary_sender, summary_enabled
-        self._summary_top_n, self._watch_ai_enabled, self._dry_run = summary_top_n, watch_ai_enabled, dry_run
+        self._watch_ai_enabled, self._dry_run = watch_ai_enabled, dry_run
         self._interval, self._lookback, self._analysis_period = interval, lookback, analysis_period
         self._production_ready, self._automation_enabled = production_ready, automation_enabled
         ensure_job_name(self.name)
@@ -117,9 +111,7 @@ class AutomatedInvestmentPipelineJob:
         start, end = context.scheduled_for - self._lookback, context.scheduled_for
         processed = quality_blocked = gemini_calls = gemini_avoided = 0
         alerts_rendered = alerts_sent = alerts_suppressed = 0
-        summaries_rendered = summaries_simulated = summaries_sent = 0
         counts = {level.value: 0 for level in OpportunityLevel}
-        ranked: list[tuple[tuple, SummaryCandidate]] = []
         logger = get_logger()
 
         for mapping in mappings:
@@ -176,10 +168,6 @@ class AutomatedInvestmentPipelineJob:
             opportunity = self._opportunity_service.record(asset_id=mapping.asset_id, analysis_id=analysis_record.id, assessment=assessment, evaluated_at=context.started_at, ai_run_id=getattr(getattr(ai_execution, "record", None), "id", None))
             if opportunity is None or opportunity.evaluated_at != context.started_at:
                 raise RuntimeError("opportunity persistida não corresponde à execução atual")
-            if prefiltered is not None:
-                policy = self._opportunity_pre_filter.policy
-                indicators = tuple((name, str(value)) for name, value in metrics.items())
-                ranked.append((prefiltered.presentation_rank, SummaryCandidate(asset.symbol, assessment.level.value, str(assessment.score), indicators)))
             if candidate_level:
                 policy = self._opportunity_pre_filter.policy if self._opportunity_pre_filter else None
                 indicators = tuple((name, str(value)) for name, value in metrics.items())
@@ -193,18 +181,5 @@ class AutomatedInvestmentPipelineJob:
                     else:
                         alerts_suppressed += 1
 
-        if self._summary_enabled and self._summary_sender is not None:
-            ranked.sort(key=lambda item: (-item[0][0], -item[0][1], -item[0][2], item[0][3]))
-            policy = self._opportunity_pre_filter.policy if self._opportunity_pre_filter else None
-            summary = PipelineSummary(len(mappings), processed, quality_blocked, tuple(counts.items()), tuple(item[1] for item in ranked[:self._summary_top_n]), policy.version if policy else "unknown", self._criteria(policy) if policy else (), gemini_calls_avoided=gemini_avoided, gemini_calls=gemini_calls, dry_run=self._dry_run)
-            summary_text = TelegramMessageFormatter.render_summary(summary)
-            summaries_rendered += 1
-            for recipient_id in self._recipient_ids:
-                self._summary_sender.send_message(recipient_id, summary_text)
-            if self._dry_run:
-                summaries_simulated += len(self._recipient_ids)
-            else:
-                summaries_sent += len(self._recipient_ids)
-            logger.info("pipeline_summary_rendered analyzed=%s skipped=%s rendered=%s simulated=%s sent=%s dry_run=%s", processed, quality_blocked, summaries_rendered, summaries_simulated, summaries_sent, self._dry_run)
-        logger.info("pipeline_completed considered=%s analyzed=%s skipped=%s levels=%s gemini_calls=%s gemini_calls_avoided=%s alerts_rendered=%s alerts_sent=%s alerts_suppressed=%s summaries_rendered=%s summaries_simulated=%s summaries_sent=%s dry_run=%s", len(mappings), processed, quality_blocked, counts, gemini_calls, gemini_avoided, alerts_rendered, alerts_sent, alerts_suppressed, summaries_rendered, summaries_simulated, summaries_sent, self._dry_run)
+        logger.info("pipeline_completed considered=%s analyzed=%s skipped=%s levels=%s gemini_calls=%s gemini_calls_avoided=%s alerts_rendered=%s alerts_sent=%s alerts_suppressed=%s dry_run=%s", len(mappings), processed, quality_blocked, counts, gemini_calls, gemini_avoided, alerts_rendered, alerts_sent, alerts_suppressed, self._dry_run)
         return JobResult(processed_count=processed)

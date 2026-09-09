@@ -36,6 +36,7 @@ class Settings:
     telegram_alert_chat_ids: tuple[int, ...] = ()
     telegram_summary_enabled: bool = True
     telegram_summary_top_n: int = 5
+    telegram_summary_hour_brt: int = 22
     pipeline_simulation_enabled: bool = False
     telegram_dry_run: bool = False
     dry_run_allow_ai: bool = False
@@ -169,6 +170,19 @@ def _bounded_positive_int(name: str, default: int, *, maximum: int) -> int:
     return value
 
 
+def _hour(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} deve ser inteiro") from exc
+    if not 0 <= value <= 23:
+        raise ValueError(f"{name} deve estar entre 0 e 23")
+    return value
+
+
 def _non_negative_decimal(name: str, default: Decimal) -> Decimal:
     raw = os.getenv(name)
     if raw is None or not raw.strip():
@@ -235,6 +249,7 @@ def get_settings() -> Settings:
         telegram_summary_top_n=_bounded_positive_int(
             "TELEGRAM_SUMMARY_TOP_N", 5, maximum=10
         ),
+        telegram_summary_hour_brt=_hour("TELEGRAM_SUMMARY_HOUR_BRT", 22),
         pipeline_simulation_enabled=_optional_bool(
             "PIPELINE_SIMULATION_ENABLED", False
         ),

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.jobs.errors import JobScheduleError
-from app.jobs.schedule import IntervalSchedule, ScheduledJob, SchedulerService
+from app.jobs.schedule import DailyAtSchedule, IntervalSchedule, ScheduledJob, SchedulerService
 
 
 ANCHOR = datetime(2026, 8, 21, 10, 0, tzinfo=UTC)
@@ -74,3 +74,11 @@ def test_run_forever_calls_injected_sleep_between_rounds():
 def test_run_forever_rejects_invalid_poll_interval(interval):
     with pytest.raises(JobScheduleError):
         SchedulerService(Runner(), ()).run_forever(poll_interval_seconds=interval, should_stop=lambda: True)
+
+
+def test_daily_schedule_only_exposes_the_brt_closing_slot_window():
+    schedule = DailyAtSchedule(hour=22, timezone_name="America/Sao_Paulo")
+
+    assert schedule.slot_at_or_before(datetime(2026, 9, 9, 1, 15, tzinfo=UTC)) == datetime(2026, 9, 9, 1, 0, tzinfo=UTC)
+    assert schedule.slot_at_or_before(datetime(2026, 9, 9, 1, 30, tzinfo=UTC)) is None
+    assert schedule.slot_at_or_before(datetime(2026, 9, 9, 0, 59, tzinfo=UTC)) is None

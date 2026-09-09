@@ -35,6 +35,18 @@ class FakeRequest:
         self._filters.append((column, value))
         return self
 
+    def gte(self, column, value):
+        self._filters.append((column, value, "gte"))
+        return self
+
+    def lte(self, column, value):
+        self._filters.append((column, value, "lte"))
+        return self
+
+    def lt(self, column, value):
+        self._filters.append((column, value, "lt"))
+        return self
+
     def order(self, column, *, desc=False):
         self._order = (column, desc)
         return self
@@ -47,7 +59,16 @@ class FakeRequest:
         rows = [
             row
             for row in self._rows
-            if all(row[column] == value for column, value in self._filters)
+            if all(
+                row[item[0]] == item[1]
+                if len(item) == 2
+                else {
+                    "gte": row[item[0]] >= item[1],
+                    "lte": row[item[0]] <= item[1],
+                    "lt": row[item[0]] < item[1],
+                }[item[2]]
+                for item in self._filters
+            )
         ]
         if self._order is not None:
             column, desc = self._order
@@ -111,6 +132,7 @@ def test_ai_run_get_latest_returns_most_recent():
                         "classification": "POSITIVE",
                         "confidence": "0.7",
                         "summary": "earlier",
+                        "risks": ["risk"],
                         "started_at": EARLIER.isoformat(),
                         "finished_at": EARLIER.isoformat(),
                         "created_at": EARLIER.isoformat(),
@@ -123,6 +145,7 @@ def test_ai_run_get_latest_returns_most_recent():
                         "classification": "POSITIVE",
                         "confidence": "0.7",
                         "summary": "latest",
+                        "risks": ["risk"],
                         "started_at": LATER.isoformat(),
                         "finished_at": LATER.isoformat(),
                         "created_at": LATER.isoformat(),
@@ -146,6 +169,7 @@ def test_opportunity_get_latest_returns_most_recent():
                         "id": str(earlier_id),
                         "asset_id": str(ASSET_ID),
                         "analysis_id": str(ANALYSIS_ID),
+                        "ai_run_id": None,
                         "level": "WATCH",
                         "score": "50",
                         "evidence_count": 2,
@@ -157,6 +181,7 @@ def test_opportunity_get_latest_returns_most_recent():
                         "id": str(latest_id),
                         "asset_id": str(ASSET_ID),
                         "analysis_id": str(ANALYSIS_ID),
+                        "ai_run_id": None,
                         "level": "WATCH",
                         "score": "50",
                         "evidence_count": 2,
@@ -170,6 +195,43 @@ def test_opportunity_get_latest_returns_most_recent():
     )
 
     assert repository.get_latest_for_asset(ASSET_ID).id == latest_id
+
+
+def test_opportunity_daily_queries_preserve_ai_link_and_time_boundaries():
+    rows = [
+        {
+            "id": str(OPPORTUNITY_ID),
+            "asset_id": str(ASSET_ID),
+            "analysis_id": str(ANALYSIS_ID),
+            "ai_run_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "level": "INTERESTING",
+            "score": "70",
+            "evidence_count": 2,
+            "evaluated_at": EARLIER.isoformat(),
+            "policy_version": "candidate-v1",
+            "created_at": EARLIER.isoformat(),
+        },
+        {
+            "id": str(UUID("99999999-9999-9999-9999-999999999999")),
+            "asset_id": str(ASSET_ID),
+            "analysis_id": str(ANALYSIS_ID),
+            "ai_run_id": None,
+            "level": "WATCH",
+            "score": "20",
+            "evidence_count": 1,
+            "evaluated_at": LATER.isoformat(),
+            "policy_version": "candidate-v1",
+            "created_at": LATER.isoformat(),
+        },
+    ]
+    repository = OpportunityRepository(FakeClient({"opportunities": rows}))
+
+    daily = repository.list_between(EARLIER, LATER)
+    previous = repository.get_latest_before(ASSET_ID, LATER)
+
+    assert [row.id for row in daily] == [OPPORTUNITY_ID, UUID("99999999-9999-9999-9999-999999999999")]
+    assert daily[0].ai_run_id == UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    assert previous.id == OPPORTUNITY_ID
 
 
 def test_alert_get_latest_sent_returns_most_recent():

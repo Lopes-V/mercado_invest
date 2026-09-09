@@ -31,10 +31,11 @@ from app.database.repositories import (
     ShadowPredictionRepository,
 )
 from app.jobs.investment_pipeline import AutomatedInvestmentPipelineJob
+from app.jobs.daily_summary import DailyInvestmentSummaryJob
 from app.jobs.market_data import MarketHistoryCollectionJob, MarketQuoteCollectionJob
 from app.jobs.shadow import ShadowOpportunityPipelineJob, ShadowSettlementJob
 from app.jobs.runner import JobRunner
-from app.jobs.schedule import IntervalSchedule, ScheduledJob, SchedulerService
+from app.jobs.schedule import DailyAtSchedule, IntervalSchedule, ScheduledJob, SchedulerService
 from app.market_data.http import ProviderHttpClient
 from app.market_data.ingestion import MarketDataIngestionService
 from app.market_data.models import CandleInterval
@@ -310,9 +311,6 @@ def build_application(
                         alert_service=alert_service,
                         recipient_ids=settings.telegram_alert_chat_ids,
                         opportunity_pre_filter=opportunity_pre_filter,
-                        summary_sender=telegram,
-                        summary_enabled=settings.telegram_summary_enabled,
-                        summary_top_n=settings.telegram_summary_top_n,
                         dry_run=simulation_pipeline_enabled,
                         interval=pipeline_interval,
                         lookback=timedelta(
@@ -323,6 +321,25 @@ def build_application(
                         automation_enabled=settings.automation_enabled,
                     ),
                     pipeline_schedule,
+                )
+            )
+        if settings.telegram_summary_enabled:
+            jobs.append(
+                ScheduledJob(
+                    DailyInvestmentSummaryJob(
+                        opportunities=opportunities,
+                        assets=assets,
+                        quotes=quotes,
+                        metrics=metrics,
+                        ai_runs=ai_runs,
+                        sender=telegram,
+                        recipient_ids=settings.telegram_alert_chat_ids,
+                        top_n=settings.telegram_summary_top_n,
+                    ),
+                    DailyAtSchedule(
+                        hour=settings.telegram_summary_hour_brt,
+                        timezone_name="America/Sao_Paulo",
+                    ),
                 )
             )
 

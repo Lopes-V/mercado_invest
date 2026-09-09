@@ -329,6 +329,7 @@ def test_explicit_simulation_builds_pipeline_without_production_gates(monkeypatc
     )
     try:
         assert any(item.job.name.startswith("investment_pipeline:") for item in application.scheduler._jobs)
+        assert "daily_investment_summary" in tuple(item.job.name for item in application.scheduler._jobs)
     finally:
         application.close()
 

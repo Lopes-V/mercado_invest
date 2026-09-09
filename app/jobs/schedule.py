@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from math import isfinite
 from time import sleep as default_sleep
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.jobs.contracts import Job
 from app.jobs.errors import JobScheduleError
@@ -35,16 +36,42 @@ class IntervalSchedule:
 
 
 @dataclass(frozen=True, slots=True)
+class DailyAtSchedule:
+    """Expose a daily local-time slot only during its explicit 30-minute window."""
+
+    hour: int
+    timezone_name: str
+
+    def __post_init__(self) -> None:
+        if isinstance(self.hour, bool) or not isinstance(self.hour, int) or not 0 <= self.hour <= 23:
+            raise JobScheduleError("hour deve estar entre 0 e 23")
+        try:
+            ZoneInfo(self.timezone_name)
+        except ZoneInfoNotFoundError as exc:
+            raise JobScheduleError("timezone_name inv\u00e1lido") from exc
+
+    def slot_at_or_before(self, now: datetime) -> datetime | None:
+        normalized_now = ensure_utc_datetime(now, field="now")
+        timezone = ZoneInfo(self.timezone_name)
+        local_now = normalized_now.astimezone(timezone)
+        if local_now.hour != self.hour or local_now.minute >= 30:
+            return None
+        return local_now.replace(
+            hour=self.hour, minute=0, second=0, microsecond=0
+        ).astimezone(UTC)
+
+
+@dataclass(frozen=True, slots=True)
 class ScheduledJob:
     job: Job
-    schedule: IntervalSchedule
+    schedule: IntervalSchedule | DailyAtSchedule
 
     def __post_init__(self) -> None:
         if not isinstance(self.job, Job):
             raise JobScheduleError("job deve implementar Job")
         ensure_job_name(self.job.name)
-        if not isinstance(self.schedule, IntervalSchedule):
-            raise JobScheduleError("schedule deve ser IntervalSchedule")
+        if not isinstance(self.schedule, (IntervalSchedule, DailyAtSchedule)):
+            raise JobScheduleError("schedule deve ser uma agenda suportada")
 
 
 @dataclass(frozen=True, slots=True)

@@ -249,13 +249,24 @@ def test_settings_read_summary_and_explicit_simulation(monkeypatch):
     set_required_env(monkeypatch)
     monkeypatch.setenv("TELEGRAM_ALERT_CHAT_IDS", "-100,200")
     monkeypatch.setenv("TELEGRAM_SUMMARY_TOP_N", "3")
+    monkeypatch.setenv("TELEGRAM_SUMMARY_HOUR_BRT", "22")
     monkeypatch.setenv("PIPELINE_SIMULATION_ENABLED", "true")
     monkeypatch.setenv("TELEGRAM_DRY_RUN", "true")
     settings = get_settings()
     assert settings.telegram_alert_chat_ids == (-100, 200)
     assert settings.telegram_summary_top_n == 3
+    assert settings.telegram_summary_hour_brt == 22
     assert settings.pipeline_simulation_enabled is True
     assert settings.telegram_dry_run is True
+
+
+@pytest.mark.parametrize("hour", ("-1", "24", "invalid"))
+def test_settings_reject_invalid_daily_summary_hour(monkeypatch, hour):
+    set_required_env(monkeypatch)
+    monkeypatch.setenv("TELEGRAM_SUMMARY_HOUR_BRT", hour)
+
+    with pytest.raises(ValueError, match="TELEGRAM_SUMMARY_HOUR_BRT"):
+        get_settings()
 
 
 def test_legacy_opportunity_rules_are_rejected(monkeypatch):

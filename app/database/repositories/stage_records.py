@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 from supabase import Client
-from app.database.models import RepositoryDataError, _datetime, _decimal, _nullable_datetime, _nullable_text, _text, _uuid
+from app.database.models import RepositoryDataError, _datetime, _decimal, _nullable_datetime, _nullable_text, _nullable_uuid, _text, _uuid
 from app.database.repositories._response import create_one, read_one_or_none
 
 def _rows(response, operation, parser):
@@ -48,11 +48,16 @@ class AnalysisMetricRepository:
         return _rows(self._client.table("analysis_metrics").insert(data).execute(),"create metrics",AnalysisMetricRecord.from_payload)
     def list_by_analysis(self,analysis_id:UUID):return _rows(self._client.table("analysis_metrics").select("*").eq("analysis_id",str(analysis_id)).order("metric_name").execute(),"list metrics",AnalysisMetricRecord.from_payload)
 
+def _text_tuple(payload, field):
+    value = payload.get(field)
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+        raise RepositoryDataError(f"{field} deve ser lista de textos n\u00e3o vazios")
+    return tuple(value)
 @dataclass(frozen=True,slots=True)
 class AIRunRecord:
-    id:UUID;asset_id:UUID;provider:str;model:str;classification:str;confidence:Decimal;summary:str;started_at:datetime;finished_at:datetime;created_at:datetime
+    id:UUID;asset_id:UUID;provider:str;model:str;classification:str;confidence:Decimal;summary:str;risks:tuple[str,...];started_at:datetime;finished_at:datetime;created_at:datetime
     @classmethod
-    def from_payload(cls,p):return cls(_uuid(p,"id"),_uuid(p,"asset_id"),_text(p,"provider"),_text(p,"model"),_text(p,"classification"),_decimal(p,"confidence"),_text(p,"summary"),_datetime(p,"started_at"),_datetime(p,"finished_at"),_datetime(p,"created_at"))
+    def from_payload(cls,p):return cls(_uuid(p,"id"),_uuid(p,"asset_id"),_text(p,"provider"),_text(p,"model"),_text(p,"classification"),_decimal(p,"confidence"),_text(p,"summary"),_text_tuple(p,"risks"),_datetime(p,"started_at"),_datetime(p,"finished_at"),_datetime(p,"created_at"))
 class AIRunRepository:
     def __init__(self,client):self._client=client
     def create(self,**kwargs):return create_one(self._client.table("ai_runs").insert(_payload(**kwargs)).execute(),operation="create AI run",parser=AIRunRecord.from_payload)
@@ -61,18 +66,20 @@ class AIRunRepository:
 
 @dataclass(frozen=True,slots=True)
 class OpportunityRecord:
-    id:UUID;asset_id:UUID;analysis_id:UUID;level:str;score:Decimal;evidence_count:int;evaluated_at:datetime;policy_version:str;created_at:datetime
+    id:UUID;asset_id:UUID;analysis_id:UUID;ai_run_id:UUID|None;level:str;score:Decimal;evidence_count:int;evaluated_at:datetime;policy_version:str;created_at:datetime
     @classmethod
     def from_payload(cls,p):
         count=p.get("evidence_count");
         if isinstance(count,bool) or not isinstance(count,int):raise RepositoryDataError("evidence_count inválido")
-        return cls(_uuid(p,"id"),_uuid(p,"asset_id"),_uuid(p,"analysis_id"),_text(p,"level"),_decimal(p,"score"),count,_datetime(p,"evaluated_at"),_text(p,"policy_version"),_datetime(p,"created_at"))
+        return cls(_uuid(p,"id"),_uuid(p,"asset_id"),_uuid(p,"analysis_id"),_nullable_uuid(p,"ai_run_id"),_text(p,"level"),_decimal(p,"score"),count,_datetime(p,"evaluated_at"),_text(p,"policy_version"),_datetime(p,"created_at"))
 class OpportunityRepository:
     def __init__(self,client):self._client=client
     def create(self,**kwargs):return create_one(self._client.table("opportunities").insert(_payload(**kwargs)).execute(),operation="create opportunity",parser=OpportunityRecord.from_payload)
     def get_by_id(self,record_id):return read_one_or_none(self._client.table("opportunities").select("*").eq("id",str(record_id)),operation="get opportunity",parser=OpportunityRecord.from_payload)
     def get_latest_for_asset(self,asset_id):return _read_first_or_none(self._client.table("opportunities").select("*").eq("asset_id",str(asset_id)).order("evaluated_at",desc=True),"latest opportunity",OpportunityRecord.from_payload)
     def list_recent_for_asset(self,asset_id,limit):return _rows(self._client.table("opportunities").select("*").eq("asset_id",str(asset_id)).order("evaluated_at",desc=True).limit(limit).execute(),"recent opportunities",OpportunityRecord.from_payload)
+    def list_between(self,start,end):return _rows(self._client.table("opportunities").select("*").gte("evaluated_at",start.isoformat()).lte("evaluated_at",end.isoformat()).order("evaluated_at").execute(),"daily opportunities",OpportunityRecord.from_payload)
+    def get_latest_before(self,asset_id,before):return _read_first_or_none(self._client.table("opportunities").select("*").eq("asset_id",str(asset_id)).lt("evaluated_at",before.isoformat()).order("evaluated_at",desc=True),"previous opportunity",OpportunityRecord.from_payload)
 
 @dataclass(frozen=True,slots=True)
 class AlertRecord:

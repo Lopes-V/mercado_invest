@@ -19,7 +19,8 @@ _SYSTEM_INSTRUCTION = (
     "Use only the supplied facts. Never invent prices, indicators, news, or "
     "macroeconomic data. Never recommend BUY or SELL directly and never "
     "change an opportunity score. Return INSUFFICIENT_EVIDENCE when the "
-    "facts are insufficient."
+    "facts are insufficient. Write summary, positive_factors, negative_factors, "
+    "and risks in Portugu\u00eas do Brasil."
 )
 
 

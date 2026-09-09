@@ -19,9 +19,9 @@ Etapas 0–15 aplicáveis implementadas e validadas; Gemini, Twelve Data EUA e T
 
 ## Pipeline
 
-Market Data -> Quality -> Analysis -> Deterministic Pre-filter -> summary/alert flow -> Telegram
+Market Data -> Quality -> Analysis -> Deterministic Pre-filter -> individual alerts -> Telegram
 
-A IA não define score financeiro, não inventa dados ausentes e não executa compra/venda. Dados não `VALID` bloqueiam o pipeline antes da IA.
+A IA não define score financeiro, não inventa dados ausentes e não executa compra/venda. Dados não `VALID` bloqueiam o pipeline antes da IA. O fechamento diário é um job separado, executado às 22:00 em `America/Sao_Paulo`: ele consolida os registros persistidos do dia e não repete os alertas individuais.
 
 ## Automação
 

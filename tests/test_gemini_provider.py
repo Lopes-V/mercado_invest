@@ -211,6 +211,8 @@ def test_gemini_uses_header_generate_content_model_and_structured_schema() -> No
     assert facts["analysis_metrics"] == [["RETURN", "0.010000000000000001"]]
     assert "opportunity_score" not in facts
     assert "quality" not in facts
+    instruction = payload["systemInstruction"]["parts"][0]["text"]
+    assert "Portugu\u00eas do Brasil" in instruction
 
 
 def test_gemini_own_client_closes() -> None:
