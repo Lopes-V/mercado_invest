@@ -26,6 +26,15 @@ class AnalysisResult:
     algorithm_version: str
     metrics: tuple[AnalysisMetric, ...]
 
+class PersistedAnalysisRecord(Protocol):
+    id: UUID
+    reference_at: datetime
+
+@dataclass(frozen=True, slots=True)
+class PersistedAnalysis:
+    result: AnalysisResult
+    record: PersistedAnalysisRecord
+
 class AnalysisEngine:
     """Uses simple return, population volatility, Wilder RSI, and max drawdown.
 
@@ -91,10 +100,13 @@ class AnalysisService:
     def __init__(self, *, candles: CandleSource, engine: AnalysisEngine, analyses: AnalysisRepository, metrics: AnalysisMetricRepository) -> None:
         self._candles, self._engine, self._analyses, self._metrics = candles, engine, analyses, metrics
 
-    def analyze(self, *, asset_id: UUID, provider: str, interval, start: datetime, end: datetime, period: int = 14) -> AnalysisResult:
+    def analyze_persisted(self, *, asset_id: UUID, provider: str, interval, start: datetime, end: datetime, period: int = 14) -> PersistedAnalysis:
         rows = self._candles.get_range(asset_id=asset_id, provider=provider, interval=interval, start=start, end=end)
         candles = tuple(Candle(asset_id=row.asset_id, provider_symbol=row.provider_symbol, timestamp=row.observed_at, open=row.open, high=row.high, low=row.low, close=row.close, volume=row.volume, interval=interval, provider=row.provider, received_at=row.received_at, quality=DataQuality(row.quality), adjusted_close=row.adjusted_close) for row in rows)
         result = self._engine.analyze(candles, period=period)
         record = self._analyses.create(asset_id=asset_id, interval=interval.value, reference_at=candles[-1].timestamp, algorithm_version=result.algorithm_version)
         self._metrics.create_many(analysis_id=record.id, metrics=result.metrics)
-        return result
+        return PersistedAnalysis(result, record)
+
+    def analyze(self, *, asset_id: UUID, provider: str, interval, start: datetime, end: datetime, period: int = 14) -> AnalysisResult:
+        return self.analyze_persisted(asset_id=asset_id, provider=provider, interval=interval, start=start, end=end, period=period).result

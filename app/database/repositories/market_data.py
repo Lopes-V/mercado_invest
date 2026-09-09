@@ -99,8 +99,21 @@ class MarketQuoteRepository:
         return read_one_or_none(self._client.table("market_quotes").select("*").eq("id", str(record_id)), operation="get market quote by id", parser=MarketQuoteRecord.from_payload)
 
     def get_latest(self, asset_id: UUID, provider: str) -> MarketQuoteRecord | None:
-        query = self._client.table("market_quotes").select("*").eq("asset_id", str(asset_id)).eq("provider", provider).order("observed_at", desc=True)
-        return read_one_or_none(query, operation="get latest market quote", parser=MarketQuoteRecord.from_payload)
+        response = (
+            self._client.table("market_quotes")
+            .select("*")
+            .eq("asset_id", str(asset_id))
+            .eq("provider", provider)
+            .order("observed_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(response, "data", None)
+        if not isinstance(rows, list) or not all(isinstance(row, Mapping) for row in rows):
+            raise RepositoryDataError("get latest market quote retornou dados invÃ¡lidos")
+        if not rows:
+            return None
+        return MarketQuoteRecord.from_payload(rows[0])
 
     def get_by_identity(
         self, *, asset_id: UUID, provider: str, observed_at: datetime

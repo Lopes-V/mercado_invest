@@ -75,48 +75,46 @@ class AnalysisService:
     def __init__(self):
         self.calls = 0
 
-    def analyze(self, **_kwargs):
+    def analyze_persisted(self, **_kwargs):
         self.calls += 1
         return SimpleNamespace(
-            algorithm_version="analysis-v1",
-            metrics=(
-                AnalysisMetric("RETURN", Decimal("0.05")),
-                AnalysisMetric("RSI", Decimal("55"), 14),
+            result=SimpleNamespace(
+                algorithm_version="analysis-v1",
+                metrics=(
+                    AnalysisMetric("RETURN", Decimal("0.05")),
+                    AnalysisMetric("RSI", Decimal("55"), 14),
+                ),
             ),
+            record=SimpleNamespace(id=ANALYSIS, reference_at=NOW),
         )
-
-
-class Analyses:
-    def __init__(self, candles):
-        self.candles = candles
-
-    def get_latest_for_asset(self, _asset_id, _interval):
-        return SimpleNamespace(id=ANALYSIS, reference_at=self.candles.rows[-1].observed_at)
 
 
 class AIService:
     def __init__(self):
         self.calls = 0
+        self.analysis_ids = []
 
-    def analyze_live(self, **_kwargs):
+    def analyze_live_persisted(self, **kwargs):
         self.calls += 1
-        return AIAnalysisResponse(
-            AIClassification.POSITIVE,
-            Decimal("0.7"),
-            ("trend",),
-            (),
-            ("volatility",),
-            "bounded",
+        self.analysis_ids.append(kwargs["analysis_id"])
+        return SimpleNamespace(
+            response=AIAnalysisResponse(
+                AIClassification.POSITIVE,
+                Decimal("0.7"),
+                ("trend",),
+                (),
+                ("volatility",),
+                "bounded",
+            ),
+            record=SimpleNamespace(id=AI_RUN),
         )
 
 
-class AIRuns:
-    def get_latest_for_asset(self, _asset_id):
-        return SimpleNamespace(id=AI_RUN)
-
-
 class OpportunityService:
-    def assess(self, **_kwargs):
+    def __init__(self):
+        self.record_payloads = []
+
+    def evaluate(self, **_kwargs):
         return OpportunityAssessment(
             OpportunityLevel.INTERESTING,
             Decimal("60"),
@@ -124,10 +122,9 @@ class OpportunityService:
             ("RETURN", "RSI"),
         )
 
-
-class Opportunities:
-    def get_latest_for_asset(self, _asset_id):
-        return SimpleNamespace(id=OPPORTUNITY, evaluated_at=NOW)
+    def record(self, **kwargs):
+        self.record_payloads.append(kwargs)
+        return SimpleNamespace(id=OPPORTUNITY, evaluated_at=kwargs["evaluated_at"])
 
 
 class Alerts:
@@ -152,6 +149,7 @@ def build_job(*, quote_quality="VALID", candle_quality="VALID"):
     candles = Candles(candle_quality)
     analysis = AnalysisService()
     ai = AIService()
+    opportunity = OpportunityService()
     alerts = Alerts()
     job = AutomatedInvestmentPipelineJob(
         provider_name="brapi",
@@ -161,33 +159,33 @@ def build_job(*, quote_quality="VALID", candle_quality="VALID"):
         assets=Assets(),
         markets=Markets(),
         analysis_service=analysis,
-        analyses=Analyses(candles),
         ai_service=ai,
-        ai_runs=AIRuns(),
-        opportunity_service=OpportunityService(),
-        opportunities=Opportunities(),
+        opportunity_service=opportunity,
         alert_service=alerts,
         recipient_id=123,
         interval=CandleInterval.ONE_DAY,
         lookback=timedelta(days=30),
         analysis_period=14,
     )
-    return job, analysis, ai, alerts
+    return job, analysis, ai, opportunity, alerts
 
 
 def test_pipeline_runs_analysis_ai_opportunity_and_alert_in_order():
-    job, analysis, ai, alerts = build_job()
+    job, analysis, ai, opportunity, alerts = build_job()
     result = job.execute(context())
     assert result.processed_count == 1
     assert analysis.calls == 1
     assert ai.calls == 1
+    assert ai.analysis_ids == [ANALYSIS]
+    assert opportunity.record_payloads[0]["analysis_id"] == ANALYSIS
+    assert opportunity.record_payloads[0]["ai_run_id"] == AI_RUN
     assert len(alerts.calls) == 1
     assert alerts.calls[0]["recipient_id"] == 123
     assert alerts.calls[0]["asset"] == "PETR4"
 
 
 def test_pipeline_blocks_non_valid_quote_before_ai():
-    job, analysis, ai, alerts = build_job(quote_quality="STALE")
+    job, analysis, ai, _opportunity, alerts = build_job(quote_quality="STALE")
     result = job.execute(context())
     assert result.processed_count == 0
     assert analysis.calls == 0
@@ -196,7 +194,7 @@ def test_pipeline_blocks_non_valid_quote_before_ai():
 
 
 def test_pipeline_blocks_non_valid_candle_before_ai():
-    job, analysis, ai, alerts = build_job(candle_quality="INCOMPLETE")
+    job, analysis, ai, _opportunity, alerts = build_job(candle_quality="INCOMPLETE")
     result = job.execute(context())
     assert result.processed_count == 0
     assert analysis.calls == 0
@@ -212,10 +210,6 @@ class PersistedOpportunities:
         row = SimpleNamespace(id=uuid4(), **payload)
         self.rows.append(row)
         return row
-
-    def get_latest_for_asset(self, _asset_id):
-        return self.rows[-1] if self.rows else None
-
 
 class RecordingOpportunityService(DomainOpportunityService):
     pass
@@ -234,8 +228,8 @@ def build_prefilter_job(policy):
         provider_name="brapi",
         provider_symbols=Symbols(), quotes=Quotes(), candles=candles,
         assets=Assets(), markets=Markets(), analysis_service=analysis,
-        analyses=Analyses(candles), ai_service=ai, ai_runs=AIRuns(),
-        opportunity_service=service, opportunities=opportunity_repository,
+        ai_service=ai,
+        opportunity_service=service,
         alert_service=alerts, recipient_ids=(123,),
         opportunity_pre_filter=OpportunityPreFilter(service.engine),
         interval=CandleInterval.ONE_DAY, lookback=timedelta(days=30),

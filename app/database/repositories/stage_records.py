@@ -16,6 +16,11 @@ def _rows(response, operation, parser):
     data=getattr(response,"data",None)
     if not isinstance(data,list): raise RepositoryDataError(f"{operation} retornou dados inválidos")
     return tuple(parser(row) for row in data)
+def _read_first_or_none(query, operation, parser):
+    data=getattr(query.limit(1).execute(),"data",None)
+    if not isinstance(data,list) or not all(isinstance(row,Mapping) for row in data): raise RepositoryDataError(f"{operation} retornou dados inválidos")
+    if not data:return None
+    return parser(data[0])
 def _payload(**kwargs):
     return {key:(str(value) if isinstance(value,(UUID,Decimal)) else value.isoformat() if isinstance(value,datetime) else value) for key,value in kwargs.items()}
 @dataclass(frozen=True,slots=True)
@@ -35,7 +40,7 @@ class AnalysisRepository:
     def __init__(self,client:Client):self._client=client
     def create(self,**kwargs):return create_one(self._client.table("analyses").insert(_payload(**kwargs)).execute(),operation="create analysis",parser=AnalysisRecord.from_payload)
     def get_by_id(self,record_id:UUID):return read_one_or_none(self._client.table("analyses").select("*").eq("id",str(record_id)),operation="get analysis",parser=AnalysisRecord.from_payload)
-    def get_latest_for_asset(self,asset_id:UUID,interval:str):return read_one_or_none(self._client.table("analyses").select("*").eq("asset_id",str(asset_id)).eq("interval",interval).order("reference_at",desc=True),operation="latest analysis",parser=AnalysisRecord.from_payload)
+    def get_latest_for_asset(self,asset_id:UUID,interval:str):return _read_first_or_none(self._client.table("analyses").select("*").eq("asset_id",str(asset_id)).eq("interval",interval).order("reference_at",desc=True),"latest analysis",AnalysisRecord.from_payload)
 class AnalysisMetricRepository:
     def __init__(self,client:Client):self._client=client
     def create_many(self,*,analysis_id:UUID,metrics):
@@ -52,7 +57,7 @@ class AIRunRepository:
     def __init__(self,client):self._client=client
     def create(self,**kwargs):return create_one(self._client.table("ai_runs").insert(_payload(**kwargs)).execute(),operation="create AI run",parser=AIRunRecord.from_payload)
     def get_by_id(self,record_id):return read_one_or_none(self._client.table("ai_runs").select("*").eq("id",str(record_id)),operation="get AI run",parser=AIRunRecord.from_payload)
-    def get_latest_for_asset(self,asset_id):return read_one_or_none(self._client.table("ai_runs").select("*").eq("asset_id",str(asset_id)).order("finished_at",desc=True),operation="latest AI run",parser=AIRunRecord.from_payload)
+    def get_latest_for_asset(self,asset_id):return _read_first_or_none(self._client.table("ai_runs").select("*").eq("asset_id",str(asset_id)).order("finished_at",desc=True),"latest AI run",AIRunRecord.from_payload)
 
 @dataclass(frozen=True,slots=True)
 class OpportunityRecord:
@@ -66,7 +71,7 @@ class OpportunityRepository:
     def __init__(self,client):self._client=client
     def create(self,**kwargs):return create_one(self._client.table("opportunities").insert(_payload(**kwargs)).execute(),operation="create opportunity",parser=OpportunityRecord.from_payload)
     def get_by_id(self,record_id):return read_one_or_none(self._client.table("opportunities").select("*").eq("id",str(record_id)),operation="get opportunity",parser=OpportunityRecord.from_payload)
-    def get_latest_for_asset(self,asset_id):return read_one_or_none(self._client.table("opportunities").select("*").eq("asset_id",str(asset_id)).order("evaluated_at",desc=True),operation="latest opportunity",parser=OpportunityRecord.from_payload)
+    def get_latest_for_asset(self,asset_id):return _read_first_or_none(self._client.table("opportunities").select("*").eq("asset_id",str(asset_id)).order("evaluated_at",desc=True),"latest opportunity",OpportunityRecord.from_payload)
     def list_recent_for_asset(self,asset_id,limit):return _rows(self._client.table("opportunities").select("*").eq("asset_id",str(asset_id)).order("evaluated_at",desc=True).limit(limit).execute(),"recent opportunities",OpportunityRecord.from_payload)
 
 @dataclass(frozen=True,slots=True)
@@ -83,7 +88,7 @@ class AlertRepository:
     def mark_failed(self,*,alert_id,error_code,error_message):return self._mark(alert_id,"FAILED",error_code=error_code,error_message=error_message)
     def get_by_id(self,record_id):return read_one_or_none(self._client.table("alerts").select("*").eq("id",str(record_id)),operation="get alert",parser=AlertRecord.from_payload)
     def get_by_dedupe_key(self,key):return read_one_or_none(self._client.table("alerts").select("*").eq("dedupe_key",key),operation="get alert dedupe",parser=AlertRecord.from_payload)
-    def get_latest_sent_for_asset(self,asset_id):return read_one_or_none(self._client.table("alerts").select("*").eq("asset_id",str(asset_id)).eq("status","SENT").order("sent_at",desc=True),operation="latest sent alert",parser=AlertRecord.from_payload)
+    def get_latest_sent_for_asset(self,asset_id):return _read_first_or_none(self._client.table("alerts").select("*").eq("asset_id",str(asset_id)).eq("status","SENT").order("sent_at",desc=True),"latest sent alert",AlertRecord.from_payload)
 
 @dataclass(frozen=True,slots=True)
 class BacktestRunRecord:

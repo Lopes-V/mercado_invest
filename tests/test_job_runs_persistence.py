@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -49,17 +49,19 @@ class Response:
 
 class Request:
     def __init__(self, response, error=None):
-        self.response, self.error, self.operations = response, error, []
+        self.response, self.error, self.operations, self._limit = response, error, [], None
     def insert(self, value): self.operations.append(("insert", value)); return self
     def update(self, value): self.operations.append(("update", value)); return self
     def select(self, *value): self.operations.append(("select", value)); return self
     def eq(self, *value): self.operations.append(("eq", *value)); return self
     def order(self, *value, **kwargs): self.operations.append(("order", *value, kwargs)); return self
-    def limit(self, value): self.operations.append(("limit", value)); return self
+    def limit(self, value): self.operations.append(("limit", value)); self._limit = value; return self
     def execute(self):
         self.operations.append(("execute",))
         if self.error: raise self.error
-        return self.response
+        if self._limit is None:
+            return self.response
+        return Response(self.response.data[: self._limit])
 
 
 class Client:
@@ -99,6 +101,26 @@ def test_repository_starts_finishes_and_reads_runs():
     assert ("eq", "run_key", "key") in last(client).operations
     assert repo.get_latest("test_job") is not None
     assert any(operation[0] == "order" for operation in last(client).operations)
+
+
+def test_repository_get_latest_returns_most_recent_run():
+    latest_id = UUID("33333333-3333-3333-3333-333333333333")
+    client = Client(
+        Response(
+            [
+                row(
+                    id=str(latest_id),
+                    scheduled_for=(NOW + timedelta(minutes=1)).isoformat(),
+                ),
+                row(),
+            ]
+        )
+    )
+
+    latest = JobRunRepository(client).get_latest("test_job")
+
+    assert latest is not None
+    assert latest.id == latest_id
 
 
 def test_repository_handles_empty_malformed_external_and_invalid_terminal_status():
