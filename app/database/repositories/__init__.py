@@ -3,6 +3,7 @@ from app.database.repositories.currencies import CurrencyRepository
 from app.database.repositories.exchanges import ExchangeRepository
 from app.database.repositories.markets import MarketRepository
 from app.database.repositories.jobs import JobRunRepository
+from app.database.repositories.runtime_settings import RuntimeSettingsRepository
 from app.database.repositories.market_data import (
     MarketCandleRepository,
     MarketQuoteRepository,
@@ -18,6 +19,7 @@ __all__ = [
     "CurrencyRepository",
     "ExchangeRepository",
     "JobRunRepository",
+    "RuntimeSettingsRepository",
     "MarketRepository",
     "MarketCandleRepository",
     "MarketQuoteRepository",

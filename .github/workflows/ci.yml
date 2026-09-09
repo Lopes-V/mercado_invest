@@ -14,5 +14,20 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.lock.txt
       - run: pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: npm ci
+      - working-directory: web
+        run: npm run lint
+      - working-directory: web
+        run: npm run typecheck
+      - working-directory: web
+        run: npm test
+      - working-directory: web
+        run: npm run build
       - run: git diff --check
       - run: '! git grep -nE "^(TELEGRAM_BOT_TOKEN|SUPABASE_SECRET_KEY|BRAPI_TOKEN|GEMINI_API_KEY|TWELVE_DATA_API_KEY)=.+"'

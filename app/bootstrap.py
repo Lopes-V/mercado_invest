@@ -1,6 +1,7 @@
 """Composition root for market collection and the automated analysis pipeline."""
 
 from collections.abc import Callable
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -22,6 +23,7 @@ from app.database.repositories import (
     AnalysisRepository,
     AssetRepository,
     JobRunRepository,
+    RuntimeSettingsRepository,
     MarketCandleRepository,
     MarketQuoteRepository,
     MarketRepository,
@@ -101,6 +103,10 @@ def build_application(
     frozen_policies = FrozenOpportunityPolicyRepository(client)
     shadow_predictions = ShadowPredictionRepository(client)
     job_runs = JobRunRepository(client)
+    persisted_summary_hour = RuntimeSettingsRepository(client).get_telegram_summary_hour_brt()
+    summary_hour = persisted_summary_hour if persisted_summary_hour is not None else settings.telegram_summary_hour_brt
+    if persisted_summary_hour is None:
+        logging.getLogger(__name__).warning("runtime settings ausente; usando fallback de ambiente")
     runner = JobRunner(job_runs)
     jobs: list[ScheduledJob] = []
     closers: list[Callable[[], None]] = []
@@ -335,9 +341,10 @@ def build_application(
                         sender=telegram,
                         recipient_ids=settings.telegram_alert_chat_ids,
                         top_n=settings.telegram_summary_top_n,
+                        hour_brt=summary_hour,
                     ),
                     DailyAtSchedule(
-                        hour=settings.telegram_summary_hour_brt,
+                        hour=summary_hour,
                         timezone_name="America/Sao_Paulo",
                     ),
                 )

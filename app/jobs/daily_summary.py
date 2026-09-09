@@ -57,6 +57,7 @@ class DailyInvestmentSummaryJob:
         sender: MessageSender,
         recipient_ids: tuple[int, ...],
         top_n: int,
+        hour_brt: int = 22,
     ) -> None:
         if not recipient_ids or any(
             isinstance(item, bool) or not isinstance(item, int) or item == 0
@@ -65,6 +66,8 @@ class DailyInvestmentSummaryJob:
             raise ValueError("ao menos um recipient inteiro n\u00e3o-zero deve ser informado")
         if isinstance(top_n, bool) or not isinstance(top_n, int) or not 1 <= top_n <= 10:
             raise ValueError("top_n deve estar entre 1 e 10")
+        if isinstance(hour_brt, bool) or not isinstance(hour_brt, int) or not 0 <= hour_brt <= 23:
+            raise ValueError("hour_brt deve estar entre 0 e 23")
         self._opportunities = opportunities
         self._assets = assets
         self._quotes = quotes
@@ -73,17 +76,17 @@ class DailyInvestmentSummaryJob:
         self._sender = sender
         self._recipient_ids = recipient_ids
         self._top_n = top_n
+        self._hour_brt = hour_brt
         ensure_job_name(self.name)
 
     @property
     def name(self) -> str:
         return "daily_investment_summary"
 
-    @staticmethod
-    def _day_bounds(closed_at: datetime) -> tuple[datetime, datetime]:
+    def _day_bounds(self, closed_at: datetime) -> tuple[datetime, datetime]:
         local_close = closed_at.astimezone(_BRAZIL_TIME)
-        if local_close.hour != 22:
-            raise ValueError("fechamento di\u00e1rio deve ser agendado para 22:00 BRT")
+        if local_close.hour != self._hour_brt:
+            raise ValueError("fechamento diario deve respeitar o horario BRT configurado")
         local_start = local_close.replace(hour=0, minute=0, second=0, microsecond=0)
         return local_start.astimezone(UTC), closed_at.astimezone(UTC)
 

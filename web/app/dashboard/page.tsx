@@ -1,0 +1,11 @@
+import Link from "next/link";
+import { requireAdministrativeSession } from "@/lib/auth/guard";
+import { dashboardData } from "@/lib/data/market";
+
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  await requireAdministrativeSession();
+  const data = await dashboardData();
+  return <main className="mx-auto max-w-6xl space-y-6 p-6"><header><p className="text-emerald-300">PAINEL PRIVADO</p><h1 className="mt-2 text-3xl font-semibold">Mercado Invest</h1><nav className="mt-4 flex gap-4 text-sm text-emerald-300"><Link href="/historico">Histórico</Link><Link href="/resumo">Resumo</Link><Link href="/configuracoes">Configurações</Link></nav></header><section className="grid gap-3 sm:grid-cols-4">{Object.entries(data.counts).map(([level, count]) => <div key={level} className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">{level}</p><p className="mt-2 text-2xl font-semibold">{count}</p></div>)}</section><section className="rounded-xl border border-white/10 p-4"><h2 className="font-medium">Última execução</h2>{data.job ? <p className="mt-2 text-sm text-slate-300">{data.job.status} · {data.job.startedAt ? new Date(data.job.startedAt).toLocaleString("pt-BR") : "horário indisponível"}</p> : <p className="mt-2 text-sm text-slate-400">Nenhuma execução persistida.</p>}</section><section><h2 className="text-xl font-semibold">Oportunidades atuais</h2>{data.opportunities.length ? <div className="mt-3 grid gap-3 md:grid-cols-2">{data.opportunities.map((item) => <Link href={`/ativos/${encodeURIComponent(item.symbol)}`} key={item.assetId} className="rounded-xl border border-white/10 p-4 hover:bg-white/5"><div className="flex justify-between"><strong>{item.symbol}</strong><span>{item.level}</span></div><p className="mt-2 text-sm text-slate-300">{item.name}</p><p className="mt-3 text-sm">Preço: {item.price ?? "indisponível"} · Score: {item.score || "indisponível"}</p><p className="mt-1 text-xs text-slate-400">{item.observedAt ? new Date(item.observedAt).toLocaleString("pt-BR") : "timestamp indisponível"}</p></Link>)}</div> : <p className="mt-3 text-slate-400">Nenhuma oportunidade persistida.</p>}</section></main>;
+}
