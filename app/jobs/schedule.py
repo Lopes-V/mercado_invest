@@ -37,7 +37,7 @@ class IntervalSchedule:
 
 @dataclass(frozen=True, slots=True)
 class DailyAtSchedule:
-    """Expose a daily local-time slot only during its explicit 30-minute window."""
+    """Expose a daily local-time slot from its hour through the local day end."""
 
     hour: int
     timezone_name: str
@@ -54,7 +54,7 @@ class DailyAtSchedule:
         normalized_now = ensure_utc_datetime(now, field="now")
         timezone = ZoneInfo(self.timezone_name)
         local_now = normalized_now.astimezone(timezone)
-        if local_now.hour != self.hour or local_now.minute >= 30:
+        if local_now.hour < self.hour:
             return None
         return local_now.replace(
             hour=self.hour, minute=0, second=0, microsecond=0

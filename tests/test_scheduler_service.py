@@ -76,9 +76,10 @@ def test_run_forever_rejects_invalid_poll_interval(interval):
         SchedulerService(Runner(), ()).run_forever(poll_interval_seconds=interval, should_stop=lambda: True)
 
 
-def test_daily_schedule_only_exposes_the_brt_closing_slot_window():
+def test_daily_schedule_exposes_the_brt_closing_slot_until_the_day_ends():
     schedule = DailyAtSchedule(hour=22, timezone_name="America/Sao_Paulo")
 
     assert schedule.slot_at_or_before(datetime(2026, 9, 9, 1, 15, tzinfo=UTC)) == datetime(2026, 9, 9, 1, 0, tzinfo=UTC)
-    assert schedule.slot_at_or_before(datetime(2026, 9, 9, 1, 30, tzinfo=UTC)) is None
+    assert schedule.slot_at_or_before(datetime(2026, 9, 9, 1, 30, tzinfo=UTC)) == datetime(2026, 9, 9, 1, 0, tzinfo=UTC)
+    assert schedule.slot_at_or_before(datetime(2026, 9, 9, 2, 59, tzinfo=UTC)) == datetime(2026, 9, 9, 1, 0, tzinfo=UTC)
     assert schedule.slot_at_or_before(datetime(2026, 9, 9, 0, 59, tzinfo=UTC)) is None
