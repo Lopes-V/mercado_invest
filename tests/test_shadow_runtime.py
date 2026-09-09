@@ -302,6 +302,26 @@ def test_production_job_is_not_built_without_both_execution_gates(monkeypatch):
         application.close()
 
 
+def test_runtime_summary_settings_are_not_read_when_summary_job_is_inactive(monkeypatch):
+    import app.bootstrap as bootstrap
+
+    monkeypatch.setattr(bootstrap, "create_supabase_client", lambda _settings: object())
+
+    class UnavailableRuntimeSettings:
+        def __init__(self, *_args, **_kwargs):
+            raise AssertionError("runtime settings nao deve ser consultado sem resumo diario")
+
+    monkeypatch.setattr(bootstrap, "RuntimeSettingsRepository", UnavailableRuntimeSettings)
+
+    application = build_application(
+        _settings(shadow_mode_enabled=False, automated_pipeline_enabled=True)
+    )
+    try:
+        assert not application.scheduler._jobs
+    finally:
+        application.close()
+
+
 def test_explicit_simulation_builds_pipeline_without_production_gates(monkeypatch):
     import app.bootstrap as bootstrap
 
@@ -310,6 +330,11 @@ def test_explicit_simulation_builds_pipeline_without_production_gates(monkeypatc
         bootstrap,
         "FrozenOpportunityPolicyRepository",
         lambda _client: SimpleNamespace(get_by_version=lambda _version: frozen_record()),
+    )
+    monkeypatch.setattr(
+        bootstrap,
+        "RuntimeSettingsRepository",
+        lambda _client: SimpleNamespace(get_telegram_summary_hour_brt=lambda: 9),
     )
 
     class FakeTelegram:
@@ -330,6 +355,8 @@ def test_explicit_simulation_builds_pipeline_without_production_gates(monkeypatc
     try:
         assert any(item.job.name.startswith("investment_pipeline:") for item in application.scheduler._jobs)
         assert "daily_investment_summary" in tuple(item.job.name for item in application.scheduler._jobs)
+        summary_job = next(item for item in application.scheduler._jobs if item.job.name == "daily_investment_summary")
+        assert summary_job.schedule.hour == 9
     finally:
         application.close()
 

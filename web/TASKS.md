@@ -45,7 +45,7 @@ Construir um painel web privado em Next.js + TypeScript, hospedado na Vercel, qu
 
 ## Status
 
-PENDENTE
+CONCLUÍDA
 
 ## Objetivo
 
@@ -105,7 +105,7 @@ web/
 
 ## Status
 
-PENDENTE
+CONCLUÍDA APÓS REVISÃO DE SEGURANÇA
 
 ## Objetivo
 
@@ -171,7 +171,7 @@ Criar:
 
 ## Status
 
-PENDENTE
+PENDENTE — arquivos existentes não concluem a etapa
 
 ## Objetivo
 
@@ -240,7 +240,7 @@ Diferenciar:
 
 ## Status
 
-PENDENTE
+PENDENTE — arquivos existentes não concluem a etapa
 
 ## Objetivo
 
@@ -305,7 +305,7 @@ Para cada ativo:
 
 ## Status
 
-PENDENTE
+PENDENTE — arquivos existentes não concluem a etapa
 
 ## Objetivo
 
@@ -379,7 +379,7 @@ Cada gráfico deve:
 
 ## Status
 
-PENDENTE
+PENDENTE — arquivos existentes não concluem a etapa
 
 ## Objetivo
 
@@ -429,7 +429,7 @@ Colunas:
 
 ## Status
 
-PENDENTE
+PENDENTE — arquivos existentes não concluem a etapa
 
 ## Objetivo
 
@@ -474,7 +474,7 @@ Mostrar no site o fechamento diário consolidado.
 
 ## Status
 
-PENDENTE
+PENDENTE — arquivos existentes não concluem a etapa
 
 ## Objetivo
 
@@ -548,7 +548,7 @@ POST /api/analysis/run
 
 ## Status
 
-PENDENTE
+PARCIAL — ver WEB-9.1 e WEB-9.2
 
 ## Objetivo
 
@@ -564,12 +564,16 @@ Alterar pelo painel o horário do resumo diário sem editar GitHub Actions Varia
 
 ### WEB-9.1 — Persistência
 
+Status: IMPLEMENTADA ANTECIPADAMENTE — aguardando validação remota da migration.
+
 - [ ] Criar migration específica para configuração runtime.
 - [ ] Campo `telegram_summary_hour_brt`.
 - [ ] Validar inteiro entre `0` e `23`.
 - [ ] Preservar RLS deny-by-default.
 
 ### WEB-9.2 — Backend Python
+
+Status: PARCIAL — repositório e fallback local existem; integração real depende da migration aplicada.
 
 - [ ] Ler configuração persistida.
 - [ ] Se existir, ela prevalece sobre o default de ambiente.
@@ -636,7 +640,7 @@ PENDENTE
 
 ## Status
 
-PENDENTE
+PARCIAL — CI Web local configurado; execução remota pendente.
 
 ## Objetivo
 

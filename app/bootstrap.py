@@ -103,10 +103,6 @@ def build_application(
     frozen_policies = FrozenOpportunityPolicyRepository(client)
     shadow_predictions = ShadowPredictionRepository(client)
     job_runs = JobRunRepository(client)
-    persisted_summary_hour = RuntimeSettingsRepository(client).get_telegram_summary_hour_brt()
-    summary_hour = persisted_summary_hour if persisted_summary_hour is not None else settings.telegram_summary_hour_brt
-    if persisted_summary_hour is None:
-        logging.getLogger(__name__).warning("runtime settings ausente; usando fallback de ambiente")
     runner = JobRunner(job_runs)
     jobs: list[ScheduledJob] = []
     closers: list[Callable[[], None]] = []
@@ -330,6 +326,10 @@ def build_application(
                 )
             )
         if settings.telegram_summary_enabled:
+            persisted_summary_hour = RuntimeSettingsRepository(client).get_telegram_summary_hour_brt()
+            summary_hour = persisted_summary_hour if persisted_summary_hour is not None else settings.telegram_summary_hour_brt
+            if persisted_summary_hour is None:
+                logging.getLogger(__name__).warning("runtime settings ausente; usando fallback de ambiente")
             jobs.append(
                 ScheduledJob(
                     DailyInvestmentSummaryJob(
