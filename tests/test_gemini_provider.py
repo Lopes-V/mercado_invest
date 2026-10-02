@@ -10,7 +10,9 @@ from app.ai import (
     AIAnalysisResponse,
     AIClassification,
     AIError,
+    AIResponseError,
     AIService,
+    AIUnavailableError,
     GeminiProvider,
     ValidatedAIContext,
 )
@@ -61,10 +63,17 @@ def _body(
     }
 
 
-def _provider(transport: httpx.MockTransport) -> GeminiProvider:
+def _provider(
+    transport: httpx.MockTransport,
+    *,
+    retry_delays: tuple[float, float] = (0, 0),
+    sleeper=lambda _delay: None,
+) -> GeminiProvider:
     return GeminiProvider(
         api_key=_API_KEY,
         model=_MODEL,
+        retry_delays=retry_delays,
+        sleeper=sleeper,
         client=httpx.Client(
             base_url="https://generativelanguage.googleapis.com",
             transport=transport,
@@ -79,6 +88,23 @@ def _response(body: object, status_code: int = 200) -> httpx.MockTransport:
         return httpx.Response(status_code, json=body, request=request)
 
     return httpx.MockTransport(handler)
+
+
+def _sequence(*outcomes: int | Exception) -> tuple[httpx.MockTransport, list[int]]:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        outcome = outcomes[len(calls) - 1]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return httpx.Response(
+            outcome,
+            json=_body() if outcome == 200 else {"error": "failed"},
+            request=request,
+        )
+
+    return httpx.MockTransport(handler), calls
 
 
 @pytest.mark.parametrize(
@@ -139,7 +165,7 @@ def test_gemini_preserves_decimal_json_number_without_float_round_trip() -> None
 def test_gemini_rejects_invalid_or_refused_structured_responses(body: object) -> None:
     provider = _provider(_response(body))
     try:
-        with pytest.raises(AIError):
+        with pytest.raises(AIResponseError):
             provider.analyze(_CONTEXT)
     finally:
         provider.close()
@@ -150,17 +176,129 @@ def test_gemini_rejects_invalid_generated_json() -> None:
     body["candidates"][0]["content"]["parts"][0]["text"] = "not-json"
     provider = _provider(_response(body))
     try:
-        with pytest.raises(AIError, match="estruturada inválida"):
+        with pytest.raises(AIResponseError, match="estruturada inválida"):
             provider.analyze(_CONTEXT)
     finally:
         provider.close()
 
 
-@pytest.mark.parametrize("status_code", [400, 401, 429, 500])
-def test_gemini_sanitizes_http_errors(status_code: int) -> None:
+def test_gemini_retries_503_until_valid_response() -> None:
+    transport, calls = _sequence(503, 503, 200)
+    delays: list[float] = []
+    provider = _provider(
+        transport,
+        retry_delays=(1, 2),
+        sleeper=delays.append,
+    )
+    try:
+        response = provider.analyze(_CONTEXT)
+    finally:
+        provider.close()
+
+    assert response.classification is AIClassification.NEUTRAL
+    assert len(calls) == 3
+    assert delays == [1, 2]
+
+
+def test_gemini_reports_unavailable_after_three_503_responses() -> None:
+    transport, calls = _sequence(503, 503, 503)
+    provider = _provider(transport)
+    try:
+        with pytest.raises(AIUnavailableError):
+            provider.analyze(_CONTEXT)
+    finally:
+        provider.close()
+
+    assert len(calls) == 3
+
+
+def test_gemini_retries_429_until_valid_response() -> None:
+    transport, calls = _sequence(429, 200)
+    provider = _provider(transport)
+    try:
+        response = provider.analyze(_CONTEXT)
+    finally:
+        provider.close()
+
+    assert response.classification is AIClassification.NEUTRAL
+    assert len(calls) == 2
+
+
+def test_gemini_retries_timeout_until_valid_response() -> None:
+    timeout = httpx.ReadTimeout(
+        "timeout",
+        request=httpx.Request("POST", "https://generativelanguage.googleapis.com"),
+    )
+    transport, calls = _sequence(timeout, 200)
+    provider = _provider(transport)
+    try:
+        response = provider.analyze(_CONTEXT)
+    finally:
+        provider.close()
+
+    assert response.classification is AIClassification.NEUTRAL
+    assert len(calls) == 2
+
+
+def test_gemini_retries_connection_error_until_valid_response() -> None:
+    connection_error = httpx.ConnectError(
+        "network unavailable",
+        request=httpx.Request("POST", "https://generativelanguage.googleapis.com"),
+    )
+    transport, calls = _sequence(connection_error, 200)
+    provider = _provider(transport)
+    try:
+        response = provider.analyze(_CONTEXT)
+    finally:
+        provider.close()
+
+    assert response.classification is AIClassification.NEUTRAL
+    assert len(calls) == 2
+
+
+def test_gemini_does_not_retry_401() -> None:
+    transport, calls = _sequence(401, 200)
+    provider = _provider(transport)
+    try:
+        with pytest.raises(AIResponseError):
+            provider.analyze(_CONTEXT)
+    finally:
+        provider.close()
+
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "retry_delays",
+    [
+        (float("nan"), 1),
+        (1, float("inf")),
+    ],
+)
+def test_gemini_rejects_non_finite_retry_delays(
+    retry_delays: tuple[float, float],
+) -> None:
+    with pytest.raises(AIError, match="retry_delays"):
+        GeminiProvider(
+            api_key=_API_KEY,
+            model=_MODEL,
+            retry_delays=retry_delays,
+        )
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_type"),
+    [
+        (400, AIResponseError),
+        (401, AIResponseError),
+        (429, AIUnavailableError),
+        (500, AIUnavailableError),
+    ],
+)
+def test_gemini_sanitizes_http_errors(status_code: int, error_type: type[AIError]) -> None:
     provider = _provider(_response({"error": "failed"}, status_code))
     try:
-        with pytest.raises(AIError) as exc_info:
+        with pytest.raises(error_type) as exc_info:
             provider.analyze(_CONTEXT)
     finally:
         provider.close()
@@ -174,7 +312,7 @@ def test_gemini_sanitizes_timeout() -> None:
 
     provider = _provider(httpx.MockTransport(handler))
     try:
-        with pytest.raises(AIError) as exc_info:
+        with pytest.raises(AIUnavailableError) as exc_info:
             provider.analyze(_CONTEXT)
     finally:
         provider.close()

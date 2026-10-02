@@ -4,7 +4,7 @@ from datetime import timedelta
 from typing import Protocol
 from uuid import UUID
 
-from app.ai import AIService, ValidatedAIContext
+from app.ai import AIResponseError, AIService, AIUnavailableError, ValidatedAIContext
 from app.analysis import AnalysisService
 from app.jobs.models import JobContext, JobResult, ensure_job_name
 from app.market_data.models import CandleInterval, DataQuality
@@ -109,7 +109,7 @@ class AutomatedInvestmentPipelineJob:
     def execute(self, context: JobContext) -> JobResult:
         mappings = tuple(self._provider_symbols.list_active_by_provider(self._provider_name))
         start, end = context.scheduled_for - self._lookback, context.scheduled_for
-        processed = quality_blocked = gemini_calls = gemini_avoided = 0
+        processed = quality_blocked = gemini_calls = gemini_failures = gemini_avoided = 0
         alerts_rendered = alerts_sent = alerts_suppressed = 0
         counts = {level.value: 0 for level in OpportunityLevel}
         logger = get_logger()
@@ -160,9 +160,24 @@ class AutomatedInvestmentPipelineJob:
             ai_response = None
             ai_execution = None
             if should_call_ai:
-                ai_execution = self._ai_service.analyze_live_persisted(context=ValidatedAIContext(asset_identity=asset.symbol, market=market.code, current_price=quote.price, currency_code=quote.currency_code, analysis_metrics=tuple(metrics.items()), data_timestamp=quote.observed_at, algorithm_version=analysis.algorithm_version), asset_id=mapping.asset_id, analysis_id=analysis_record.id)
-                ai_response = ai_execution.response
                 gemini_calls += 1
+                ai_context = ValidatedAIContext(asset_identity=asset.symbol, market=market.code, current_price=quote.price, currency_code=quote.currency_code, analysis_metrics=tuple(metrics.items()), data_timestamp=quote.observed_at, algorithm_version=analysis.algorithm_version)
+                try:
+                    ai_execution = self._ai_service.analyze_live_persisted(context=ai_context, asset_id=mapping.asset_id, analysis_id=analysis_record.id)
+                    ai_response = ai_execution.response
+                except (AIUnavailableError, AIResponseError) as exc:
+                    gemini_failures += 1
+                    category = (
+                        "gemini_unavailable"
+                        if isinstance(exc, AIUnavailableError)
+                        else "gemini_response_rejected"
+                    )
+                    logger.warning(
+                        "%s asset=%s provider=gemini scheduled_for=%s",
+                        category,
+                        asset.symbol,
+                        context.scheduled_for.isoformat(),
+                    )
             else:
                 gemini_avoided += 1
             opportunity = self._opportunity_service.record(asset_id=mapping.asset_id, analysis_id=analysis_record.id, assessment=assessment, evaluated_at=context.started_at, ai_run_id=getattr(getattr(ai_execution, "record", None), "id", None))
@@ -181,5 +196,5 @@ class AutomatedInvestmentPipelineJob:
                     else:
                         alerts_suppressed += 1
 
-        logger.info("pipeline_completed considered=%s analyzed=%s skipped=%s levels=%s gemini_calls=%s gemini_calls_avoided=%s alerts_rendered=%s alerts_sent=%s alerts_suppressed=%s dry_run=%s", len(mappings), processed, quality_blocked, counts, gemini_calls, gemini_avoided, alerts_rendered, alerts_sent, alerts_suppressed, self._dry_run)
+        logger.info("pipeline_completed scheduled_for=%s considered=%s analyzed=%s skipped=%s levels=%s gemini_calls=%s gemini_failures=%s gemini_avoided=%s alerts_rendered=%s alerts_sent=%s alerts_suppressed=%s dry_run=%s", context.scheduled_for.isoformat(), len(mappings), processed, quality_blocked, counts, gemini_calls, gemini_failures, gemini_avoided, alerts_rendered, alerts_sent, alerts_suppressed, self._dry_run)
         return JobResult(processed_count=processed)

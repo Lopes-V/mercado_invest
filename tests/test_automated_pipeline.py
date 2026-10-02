@@ -1,10 +1,20 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
+
+import httpx
 import pytest
 
-from app.ai import AIAnalysisResponse, AIClassification
+from app.ai import (
+    AIAnalysisResponse,
+    AIClassification,
+    AIError,
+    AIResponseError,
+    AIService as DomainAIService,
+    GeminiProvider,
+)
 from app.analysis import AnalysisMetric
 from app.jobs.investment_pipeline import AutomatedInvestmentPipelineJob
 from app.jobs.models import JobContext, JobTrigger
@@ -27,14 +37,15 @@ class Symbols:
 
 
 class Quotes:
-    def __init__(self, quality="VALID"):
+    def __init__(self, quality="VALID", price=Decimal("100")):
         self.quality = quality
+        self.price = price
 
     def get_latest(self, asset_id, provider):
         return SimpleNamespace(
             asset_id=asset_id,
             provider=provider,
-            price=Decimal("100"),
+            price=self.price,
             currency_code="BRL",
             observed_at=NOW - timedelta(minutes=1),
             quality=self.quality,
@@ -145,16 +156,22 @@ def context():
     )
 
 
-def build_job(*, quote_quality="VALID", candle_quality="VALID"):
+def build_job(
+    *,
+    quote_quality="VALID",
+    quote_price=Decimal("100"),
+    candle_quality="VALID",
+    ai_service=None,
+):
     candles = Candles(candle_quality)
     analysis = AnalysisService()
-    ai = AIService()
+    ai = ai_service or AIService()
     opportunity = OpportunityService()
     alerts = Alerts()
     job = AutomatedInvestmentPipelineJob(
         provider_name="brapi",
         provider_symbols=Symbols(),
-        quotes=Quotes(quote_quality),
+        quotes=Quotes(quote_quality, quote_price),
         candles=candles,
         assets=Assets(),
         markets=Markets(),
@@ -199,6 +216,127 @@ def test_pipeline_blocks_non_valid_candle_before_ai():
     assert result.processed_count == 0
     assert analysis.calls == 0
     assert ai.calls == 0
+    assert alerts.calls == []
+
+
+def test_pipeline_does_not_treat_invalid_financial_context_as_gemini_failure():
+    job, _analysis, _ai, opportunity, alerts = build_job(
+        quote_price=Decimal("-1")
+    )
+
+    with pytest.raises(AIError, match="current_price"):
+        job.execute(context())
+
+    assert opportunity.record_payloads == []
+    assert alerts.calls == []
+
+
+def test_pipeline_persists_deterministic_opportunity_when_gemini_is_unavailable(
+    caplog,
+):
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(503, json={"error": "unavailable"}, request=request)
+
+    provider = GeminiProvider(
+        api_key="test-gemini-key-not-a-secret",
+        model="gemini-test-model",
+        retry_delays=(0, 0),
+        sleeper=lambda _delay: None,
+        client=httpx.Client(
+            base_url="https://generativelanguage.googleapis.com",
+            transport=httpx.MockTransport(handler),
+            timeout=httpx.Timeout(5.0),
+            follow_redirects=False,
+        ),
+    )
+
+    class AIRuns:
+        def create(self, **_payload):
+            raise AssertionError("AI run não deve ser persistido após falha do provider")
+
+    ai = DomainAIService(
+        provider=provider,
+        repository=AIRuns(),
+        provider_name="gemini",
+        model="gemini-test-model",
+        prompt_version="gemini-v1",
+    )
+    job, _analysis, _ai, opportunity, alerts = build_job(ai_service=ai)
+
+    try:
+        with caplog.at_level(logging.INFO, logger="investment_bot"):
+            result = job.execute(context())
+    finally:
+        provider.close()
+
+    persisted = opportunity.record_payloads[0]
+    assert result.processed_count == 1
+    assert calls == 3
+    assert persisted["assessment"].level is OpportunityLevel.INTERESTING
+    assert persisted["assessment"].score == Decimal("60")
+    assert persisted["ai_run_id"] is None
+    assert alerts.calls[0]["factors"] == ()
+    assert alerts.calls[0]["risks"] == ()
+    assert "Análise do Gemini" not in alerts.calls[0]["message_text"]
+    assert "gemini_unavailable asset=PETR4 provider=gemini" in caplog.text
+    assert "gemini_calls=1" in caplog.text
+    assert "gemini_failures=1" in caplog.text
+
+
+def test_pipeline_persists_without_ai_fields_when_gemini_response_is_rejected(
+    caplog,
+):
+    class RejectedAIService:
+        def analyze_live_persisted(self, **_kwargs):
+            raise AIResponseError("invalid structured response")
+
+    job, _analysis, _ai, opportunity, alerts = build_job(
+        ai_service=RejectedAIService()
+    )
+
+    with caplog.at_level(logging.INFO, logger="investment_bot"):
+        result = job.execute(context())
+
+    assert result.processed_count == 1
+    assert opportunity.record_payloads[0]["ai_run_id"] is None
+    assert alerts.calls[0]["factors"] == ()
+    assert alerts.calls[0]["risks"] == ()
+    assert "gemini_response_rejected asset=PETR4 provider=gemini" in caplog.text
+
+
+def test_pipeline_propagates_unexpected_ai_service_errors():
+    class BrokenAIService:
+        def analyze_live_persisted(self, **_kwargs):
+            raise RuntimeError("AI persistence failed")
+
+    job, _analysis, _ai, opportunity, alerts = build_job(
+        ai_service=BrokenAIService()
+    )
+
+    with pytest.raises(RuntimeError, match="AI persistence failed"):
+        job.execute(context())
+
+    assert opportunity.record_payloads == []
+    assert alerts.calls == []
+
+
+def test_pipeline_propagates_generic_ai_domain_errors():
+    class InvalidAIService:
+        def analyze_live_persisted(self, **_kwargs):
+            raise AIError("AI clock returned an invalid timestamp")
+
+    job, _analysis, _ai, opportunity, alerts = build_job(
+        ai_service=InvalidAIService()
+    )
+
+    with pytest.raises(AIError, match="invalid timestamp"):
+        job.execute(context())
+
+    assert opportunity.record_payloads == []
     assert alerts.calls == []
 
 

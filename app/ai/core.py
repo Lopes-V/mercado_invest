@@ -15,6 +15,14 @@ class AIError(ValueError):
     pass
 
 
+class AIUnavailableError(AIError):
+    """The external AI provider is temporarily unavailable."""
+
+
+class AIResponseError(AIError):
+    """The AI provider returned a non-retryable or invalid response."""
+
+
 class AIClassification(StrEnum):
     POSITIVE = "POSITIVE"
     NEUTRAL = "NEUTRAL"
