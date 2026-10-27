@@ -16,9 +16,11 @@ EM ANDAMENTO
 
 ### M-2026-10-27 — Implementar Kraken após teste público aprovado
 
-- [ ] Adapter Kraken e seleção explícita da fonte no radar, catálogo e persistência.
-- [ ] Workflow Kraken, Atlas com fonte identificada, testes e validação real.
-- [ ] Preservar dados antigos, limite de 120 segundos, indicadores e pipeline de ações; sem merge automático.
+- [x] Adapter Kraken e seleção explícita da fonte no radar, catálogo e persistência.
+- [x] Workflow Kraken, Atlas com fonte identificada, testes e validação real.
+- [x] Preservar dados antigos, limite de 120 segundos, indicadores e pipeline de ações; sem merge automático.
+
+Validação: 582 testes backend, 13 unitários e 14 de navegador Atlas passaram. Coleta real repetida: BTC/ETH READY, SOL indisponível por cotação antiga. Atlas publicado e validado por HTTPS com dados reais. PRs backend #5 / Atlas #2; troca agendada para Kraken depende de merge pelo operador.
 
 ### M-2026-10-26 — Radar cripto Bybit de curto prazo (aprovado)
 

@@ -31,3 +31,13 @@ O workflow `.github/workflows/crypto-radar.yml` mantém cron de cinco minutos e 
 ## Validação real inicial
 
 A primeira execução da feature branch (40497250998) validou e criou os três assets KRAKEN; gravou cotação BTCUSDT e análises v2 de 15m e 1h. O job ficou `CRYPTO_REPORT_INCOMPLETE`, preservando a indisponibilidade dos outros pares. Ainda são necessárias verificações de repetição/idempotência, revisão final e Atlas publicado. Não houve merge automático.
+
+## Entrega verificada
+
+Backend: 582 testes passaram e 21 integrações opt-in ficaram desativadas. Atlas: 13 unitários e 14 testes de navegador passaram, além de lint/build/typecheck. Revisão independente identificou dois problemas temporais, corrigidos com regressões: timestamp futuro e janela de 201/200 candles durante virada de intervalo.
+
+A execução 40498138810 confirmou BTCUSDT e ETHUSDT READY, SOLUSDT STALE_OR_INVALID_QUOTE. Foram verificadas quatro análises únicas (duas janelas para cada um dos dois assets), com RSI, médias e direção reais, preservadas na repetição. O relatório geral permanece incompleto quando SOL está antigo; não se declara sucesso dos três pares.
+
+Atlas publicado em https://atlas-web-azure-two.vercel.app/cripto, deployment dpl_3avoC69PoufWFYE5ZoN8JaVPwKEm READY. Login HTTPS, fonte Kraken, preços/indicadores BTC/ETH e ausência de cotação/análise SOL foram confirmados em produção. Stocks e autenticação continuam funcionando.
+
+PRs para revisão: backend #5 e Atlas #2. Não houve merge automático. A coleta manual na feature branch está validada para BTC/ETH; a fonte do cron da main só passa para Kraken depois do merge do backend. Não confundir essa dependência com publicação do frontend, que já foi feita.
