@@ -14,6 +14,14 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-10-27 — Tornar a carteira útil (pedido explícito)
+
+- [ ] Simplificar navegação/formulários e ações por posição, preservando livro e registros existentes.
+- [ ] Lote2 aprovado: simulador de troca com taxas/cenários explícitos, concentração e radar baseado em análises reais.
+- [ ] Testes/revisão/deploy, sem nova migração, senha, ordens ou dados fictícios.
+
+Desenho/plano: docs/superpowers/specs/2026-10-27-actionable-wallet-design.md e docs/superpowers/plans/2026-10-27-actionable-wallet.md.
+
 ### M-2026-10-27 — Carteira virtual individual USDT (desenho aprovado)
 
 Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.
