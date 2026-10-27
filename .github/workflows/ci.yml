@@ -13,6 +13,22 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.lock.txt
+      - name: Start isolated wallet test database
+        run: |
+          docker run --detach --name atlas-wallet-pg --network none \
+            -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=wallet_test postgres:16-alpine
+          for attempt in $(seq 1 30); do
+            if docker exec atlas-wallet-pg pg_isready -U postgres -d wallet_test; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
       - run: pytest -q
+        env:
+          VIRTUAL_WALLET_DB_TEST: '1'
+      - name: Remove isolated wallet test database
+        if: always()
+        run: docker rm --force atlas-wallet-pg
       - run: git diff --check
       - run: '! git grep -nE "^(TELEGRAM_BOT_TOKEN|SUPABASE_SECRET_KEY|BRAPI_TOKEN|GEMINI_API_KEY|TWELVE_DATA_API_KEY)=.+"'

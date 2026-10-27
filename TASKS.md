@@ -14,6 +14,24 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-10-27 — Carteira virtual individual USDT (desenho aprovado)
+
+Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.
+- [x] Lote1 implementado e validado: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração. Frontend publicado; ativação SQL remota pendente.
+- [ ] Ativação pelo operador: aplicar migration no SQL Editor, conferir URLs Auth e validar primeira conta/carteira real.
+- [ ] Lote2: simulador, concentração e radar técnico com dados reais.
+- [ ] Lote3: alertas internos, histórico de sinais e backtesting com limitações explícitas de dados/fontes.
+- [x] Testes locais de isolamento, precisão, concorrência/rollback, integração e deploy frontend;622 backend/21skip (34PG),19unit/31browser. Nenhuma ordem real ou merge automático.
+
+Ativação: docs/21-virtual-wallet-activation.md. REST remoto ainda sem RPCs virtuais; não declarar gravações operacionais antes de aplicar SQL.
+
+### M-2026-10-27 — Reduzir intervalo de atualização de moedas e empresas
+
+- [x] Painel automático30s; cripto60s durante job, ações5min em coleta isolada.
+- [x] Manter qualidade/horários reais, limites de APIs e pipeline de alertas sem alterações; validar e publicar.
+
+Validação:588 testes backend/21 integrações desativadas;13 unitários/15 navegador Atlas, lint/build/tipos aprovados. Coleta real40500365669:duasrodadas60sSUCCEEDED e jobsdeaçõesSUCCEEDED. Frontendpublicado;frequências backendpendentesdemergePR#6. PRAtlas#3.
+
 ### M-2026-10-27 — Implementar Kraken após teste público aprovado
 
 - [x] Adapter Kraken e seleção explícita da fonte no radar, catálogo e persistência.
