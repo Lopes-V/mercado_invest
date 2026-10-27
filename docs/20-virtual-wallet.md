@@ -29,3 +29,5 @@ VIRTUAL_WALLET_DB_TEST=1 python -m pytest tests/test_virtual_wallet_database.py 
 ```
 
 Há testes reais de isolamento, permissões, precisão, preço médio/taxas, replay/estornos, histórico completo, dados inválidos/antigos/futuros, rollback e concorrência. Testes de navegador validam interação e contratos com mocks restritos ao processo de teste; não substituem essas verificações de banco.
+
+O workflow de CI inicia o mesmo banco isolado e habilita `VIRTUAL_WALLET_DB_TEST=1` na suíte. Nenhuma credencial de produção é necessária; o contêiner é removido ao final, inclusive em falha.
