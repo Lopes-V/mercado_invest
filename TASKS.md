@@ -16,8 +16,10 @@ EM ANDAMENTO
 
 ### M-2026-10-27 — Reduzir intervalo de atualização de moedas e empresas
 
-- [ ] Painel automático30s; cripto60s durante job, ações5min em coleta isolada.
-- [ ] Manter qualidade/horários reais, limites de APIs e pipeline de alertas sem alterações; validar e publicar.
+- [x] Painel automático30s; cripto60s durante job, ações5min em coleta isolada.
+- [x] Manter qualidade/horários reais, limites de APIs e pipeline de alertas sem alterações; validar e publicar.
+
+Validação:588 testes backend/21 integrações desativadas;13 unitários/15 navegador Atlas, lint/build/tipos aprovados. Coleta real40500365669:duasrodadas60sSUCCEEDED e jobsdeaçõesSUCCEEDED. Frontendpublicado;frequências backendpendentesdemergePR#6. PRAtlas#3.
 
 ### M-2026-10-27 — Implementar Kraken após teste público aprovado
 
