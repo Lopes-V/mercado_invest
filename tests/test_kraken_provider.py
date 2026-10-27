@@ -17,11 +17,11 @@ TRADE = ['68000.123456789', '0.1', str(int(NOW.timestamp())-2)+'.123456', 'b', '
 
 def row(at):return [int(at.timestamp()), '100', '103', '99', '102', '101', '2.5', 3]
 
-def make(payloads=None, metadata=None, requests=None):
+def make(payloads=None, metadata=None, requests=None, metadata_key="XBTUSDT"):
     from app.market_data.providers.kraken import KrakenProvider
     def respond(req):
         if requests is not None:requests.append(req)
-        value = {'error':[], 'result':{'XBTUSDT':metadata or META}} if req.url.path.endswith('AssetPairs') else payloads[req.url.path.split('/')[-1]]
+        value = {'error':[], 'result':{metadata_key:metadata or META}} if req.url.path.endswith('AssetPairs') else payloads[req.url.path.split('/')[-1]]
         return httpx.Response(200,json=value)
     client=ProviderHttpClient(base_url='https://api.kraken.com',transport=httpx.MockTransport(respond))
     return KrakenProvider(client,clock=lambda:NOW)
@@ -83,3 +83,8 @@ def test_history_identical_duplicates_are_deduplicated():
 def test_history_refuses_kraken_retention_truncation():
     with pytest.raises(ProviderCapabilityError):make().get_history(history(start=NOW-timedelta(days=10)))
     with pytest.raises(ProviderResponseError):make({'OHLC':{'error':[],'result':{'XBTUSDT':[row(NOW-timedelta(minutes=30))]}}}).get_history(history())
+
+
+def test_metadata_market_key_must_match_requested_pair():
+    with pytest.raises(ProviderResponseError):
+        make(metadata_key='ETHUSDT').get_assets(AssetSearchRequest(query='BTCUSDT'))

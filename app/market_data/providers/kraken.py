@@ -41,7 +41,7 @@ class KrakenProvider:
             if len(rows) != 1:
                 raise ProviderResponseError('Kraken requer instrumento único')
             key, row = next(iter(rows.items()))
-            if not isinstance(row, dict) or row.get('altname') != api or row.get('wsname') != api[:-4] + '/USDT' or row.get('quote') != 'USDT' or row.get('status') != 'online' or not isinstance(row.get('base'), str) or not row['base']:
+            if key != api or not isinstance(row, dict) or row.get('altname') != api or row.get('wsname') != api[:-4] + '/USDT' or row.get('quote') != 'USDT' or row.get('status') != 'online' or not isinstance(row.get('base'), str) or not row['base']:
                 raise ProviderResponseError('Kraken requer instrumento correspondente online USDT')
             asset = ProviderAsset(self.name, symbol, row['wsname'], 'CRYPTO', 'USDT', 'KRAKEN', 'CRYPTO')
             self._instruments[symbol] = (key, api, asset)
