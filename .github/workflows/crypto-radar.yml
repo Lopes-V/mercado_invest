@@ -3,6 +3,12 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      duration_seconds:
+        description: Crypto polling window in seconds
+        type: choice
+        options: ['0', '65', '270']
+        default: '270'
 permissions:
   contents: read
 concurrency:
@@ -18,6 +24,7 @@ jobs:
       APP_ENV: production
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      CRYPTO_REFRESH_DURATION: ${{ inputs.duration_seconds || '270' }}
       CRYPTO_PROVIDER: kraken
       CRYPTO_SYMBOLS: BTCUSDT,ETHUSDT,SOLUSDT
     steps:
@@ -27,7 +34,7 @@ jobs:
           python-version: '3.12'
       - run: pip install --no-input -r requirements.lock.txt
       - name: Validate catalog, collect closed candles and analyze
-        run: python -m app.crypto_radar --bootstrap --apply --persist --output "$RUNNER_TEMP/crypto-radar.json"
+        run: python -m app.market_refresh --mode crypto --interval 60 --duration "$CRYPTO_REFRESH_DURATION" --output "$RUNNER_TEMP/crypto-radar.json"
       - name: Summarize pair availability
         if: always()
         id: summary
@@ -61,3 +68,54 @@ jobs:
     timeout-minutes: 1
     steps:
       - run: echo 'Pair availability is recorded in the collection report artifact.'
+  stock-quotes:
+    name: Stock quotes every five minutes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      report: ${{ steps.summary.outputs.report }}
+    env:
+      APP_ENV: production
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      BRAPI_TOKEN: ${{ secrets.BRAPI_TOKEN }}
+      TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --no-input -r requirements.lock.txt
+      - name: Collect stock quotes only
+        run: python -m app.market_refresh --mode stocks --duration 0 --output "$RUNNER_TEMP/stock-quotes.json"
+      - name: Summarize stock collection
+        if: always()
+        id: summary
+        run: |
+          python - <<'PYSTOCKS'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'stock-quotes.json'
+          report = json.loads(path.read_text()) if path.exists() else {}
+          jobs = report.get('jobs', [])
+          parts = [j['job_name'] + '=' + j['status'] + ':' + str(j.get('http_status', j.get('error_code', 'OK'))) for j in jobs]
+          summary = 'Stocks: ' + '; '.join(parts) if jobs else 'Stocks: ' + report.get('error_code', 'UNAVAILABLE')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('report=' + summary + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write(summary + '\n')
+          PYSTOCKS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stock-quotes-report
+          path: ${{ runner.temp }}/stock-quotes.json
+          retention-days: 7
+  stock-report:
+    needs: stock-quotes
+    if: always()
+    name: ${{ needs.stock-quotes.outputs.report || 'Stock report unavailable' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo 'Quote-only stock collection, with no alerts or orders.'

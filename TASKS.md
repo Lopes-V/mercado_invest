@@ -14,6 +14,11 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-10-27 — Reduzir intervalo de atualização de moedas e empresas
+
+- [ ] Painel automático30s; cripto60s durante job, ações5min em coleta isolada.
+- [ ] Manter qualidade/horários reais, limites de APIs e pipeline de alertas sem alterações; validar e publicar.
+
 ### M-2026-10-27 — Implementar Kraken após teste público aprovado
 
 - [x] Adapter Kraken e seleção explícita da fonte no radar, catálogo e persistência.
