@@ -8,6 +8,7 @@ from app import crypto_radar
 from app.market_data.errors import ProviderHttpError, ProviderRateLimitError
 
 
+@pytest.mark.parametrize('provider', ['bybit','kraken'])
 @pytest.mark.parametrize('error,status', [
     (ProviderHttpError('sensitive-response-body', status_code=403), 403),
     (ProviderHttpError('sensitive-response-body', status_code=503), 503),
@@ -15,7 +16,7 @@ from app.market_data.errors import ProviderHttpError, ProviderRateLimitError
     (ValueError('sensitive-response-body'), None),
     (ProviderHttpError('sensitive-response-body', status_code='sensitive-response-body'), None),
 ])
-def test_cli_records_http_status_without_logging_provider_body(monkeypatch, capsys, tmp_path, error, status):
+def test_cli_records_http_status_without_logging_provider_body(monkeypatch, capsys, tmp_path, error, status, provider):
     from app.config import settings
     from app.database import client, repositories
     finishes = []
@@ -27,16 +28,16 @@ def test_cli_records_http_status_without_logging_provider_body(monkeypatch, caps
     monkeypatch.setattr(settings, 'get_settings', lambda: object())
     monkeypatch.setattr(client, 'create_supabase_client', lambda settings: object())
     monkeypatch.setattr(repositories, 'JobRunRepository', Jobs)
-    monkeypatch.setattr(crypto_radar, 'BybitProvider', lambda transport: SimpleNamespace(get_assets=fail))
+    monkeypatch.setattr(crypto_radar, 'BybitProvider' if provider=='bybit' else 'KrakenProvider', lambda transport: SimpleNamespace(get_assets=fail))
     output = tmp_path / 'report.json'
-    assert crypto_radar.main(['--bootstrap', '--apply', '--persist', '--output', str(output)]) == 1
+    assert crypto_radar.main(['--provider', provider, '--bootstrap', '--apply', '--persist', '--output', str(output)]) == 1
     printed = capsys.readouterr().out
     report = json.loads(printed)
     assert json.loads(output.read_text()) == report
     assert report['status'] == 'FAILED'
     assert report['error_code'] == type(error).__name__
     assert report.get('http_status') == status
-    expected = f'BYBIT_HTTP_{status}' if status else type(error).__name__
+    expected = f'{provider.upper()}_HTTP_{status}' if status else type(error).__name__
     assert finishes[0]['error_code'] == expected
     assert 'sensitive-response-body' not in printed
     assert 'sensitive-response-body' not in str(finishes)

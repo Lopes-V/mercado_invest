@@ -17,14 +17,14 @@ class CryptoRadarService:
 
     def scan(self, assets, *, persist=False):
         if persist and self.store is None: raise ValueError('Persistência requer store explícito.')
-        report = {'algorithm_version': 'analysis-v2', 'provider': 'bybit', 'category': 'spot', 'quote_currency': 'USDT', 'evaluated_at': self.clock().isoformat(), 'costs_status': 'CUSTOS_NAO_CONFIGURADOS', 'pairs': []}
+        report = {'algorithm_version': 'analysis-v2', 'provider': self.provider.name, 'category': 'spot', 'quote_currency': 'USDT', 'evaluated_at': self.clock().isoformat(), 'costs_status': 'CUSTOS_NAO_CONFIGURADOS', 'pairs': []}
         for asset in assets:
             pair = {'symbol': asset.symbol, 'asset_id': str(asset.id), 'status': 'UNAVAILABLE', 'reasons': [], 'windows': {}}
             report['pairs'].append(pair)
             try:
                 if not asset.is_active or asset.asset_type != 'CRYPTO': raise ValueError('INVALID_ASSET')
                 quote = self.provider.get_quote(QuoteRequest(asset.id, asset.symbol))
-                if (quote.asset_id, quote.provider_symbol, quote.provider, quote.currency_code) != (asset.id, asset.symbol, 'bybit', 'USDT'):
+                if (quote.asset_id, quote.provider_symbol, quote.provider, quote.currency_code) != (asset.id, asset.symbol, self.provider.name, 'USDT'):
                     raise ValueError('QUOTE_IDENTITY_MISMATCH')
                 checked = self.quality.assess_quote(quote, evaluated_at=self.clock())
                 if checked.data.quality is not DataQuality.VALID or quote.price <= 0:
@@ -41,7 +41,7 @@ class CryptoRadarService:
                         rows = tuple(self.provider.get_history(HistoryRequest(asset.id, asset.symbol, interval, start, end)))
                         if not rows: raise ValueError('INSUFFICIENT_HISTORY')
                         rows = tuple(sorted(rows, key=lambda row: row.timestamp))
-                        if any((row.asset_id, row.provider_symbol, row.provider, row.interval) != (asset.id, asset.symbol, 'bybit', interval) for row in rows):
+                        if any((row.asset_id, row.provider_symbol, row.provider, row.interval) != (asset.id, asset.symbol, self.provider.name, interval) for row in rows):
                             raise ValueError('CANDLE_IDENTITY_MISMATCH')
                         now = self.clock()
                         close_at = rows[-1].timestamp + timedelta(seconds=seconds)

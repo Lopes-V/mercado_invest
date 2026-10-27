@@ -128,3 +128,31 @@ def test_report_rechecks_quote_after_optional_snapshot_request():
     report=CryptoRadarService(provider=SlowBook(),engine=Engine(),clock=lambda:time[0]).scan([asset()])
     assert report['pairs'][0]['status']=='UNAVAILABLE'
     assert 'STALE_OR_INVALID_QUOTE' in report['pairs'][0]['reasons']
+
+
+def test_kraken_catalog_has_independent_assets_and_mappings():
+    old,repos=catalog()
+    old.bootstrap(instruments(),apply=True)
+    service=CryptoCatalog(**repos,provider='kraken')
+    items=[ProviderAsset('kraken',s,s,'CRYPTO','USDT','KRAKEN','CRYPTO') for s in SYMBOLS]
+    report=service.bootstrap(items,apply=True)
+    assert len(repos['assets'].rows)==6
+    assert all(r.exchange_id==repos['exchanges'].rows[1].id for r in report['assets'])
+    assert {r.provider for r in repos['mappings'].rows}=={'bybit','kraken'}
+    before=sum(r.writes for r in repos.values())
+    service.bootstrap(items,apply=True)
+    assert sum(r.writes for r in repos.values())==before
+
+
+def test_radar_kraken_identity_is_accepted_but_bybit_quote_is_rejected():
+    from dataclasses import replace
+    class Kraken(Provider):
+        name='kraken'
+        def get_quote(self,request):return replace(super().get_quote(request),provider='kraken')
+        def get_history(self,request):return tuple(replace(r,provider='kraken') for r in super().get_history(request))
+    report=CryptoRadarService(provider=Kraken(),engine=Engine(),clock=lambda:NOW).scan([asset()])
+    assert report['provider']=='kraken' and report['pairs'][0]['status']=='READY'
+    p=Kraken();p.get_quote=Provider().get_quote
+    report=CryptoRadarService(provider=p,engine=Engine(),clock=lambda:NOW).scan([asset()])
+    assert report['pairs'][0]['status']=='UNAVAILABLE'
+    assert 'QUOTE_IDENTITY_MISMATCH' in report['pairs'][0]['reasons']

@@ -1,4 +1,4 @@
-"""Public Bybit spot radar CLI. No orders, private exchange keys or Telegram."""
+"""Public spot crypto radar CLI. No orders, private exchange keys or Telegram."""
 import argparse
 import json
 import os
@@ -12,16 +12,19 @@ from app.market_data.contracts import AssetSearchRequest
 from app.market_data.errors import ProviderHttpError
 from app.market_data.http import ProviderHttpClient
 from app.market_data.providers.bybit import BybitProvider
+from app.market_data.providers.kraken import KrakenProvider
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--provider', choices=('bybit', 'kraken'), default=os.getenv('CRYPTO_PROVIDER', 'kraken'))
     parser.add_argument('--symbols', default=os.getenv('CRYPTO_SYMBOLS', ','.join(DEFAULT_SYMBOLS)))
     parser.add_argument('--bootstrap', action='store_true', help='Plan the catalog; --apply creates missing records.')
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--persist', action='store_true', help='Persist only validated quote/candle/analysis facts.')
     parser.add_argument('--output', type=Path, help='Optional report path, outside tracked source.')
     args = parser.parse_args(argv)
+    if args.provider not in ('bybit', 'kraken'): parser.error('Unsupported crypto provider')
     if args.apply and not args.bootstrap: parser.error('--apply requires --bootstrap')
     from app.analysis.crypto import CryptoAnalysisEngine
     from app.crypto.radar import CryptoRadarService
@@ -40,18 +43,18 @@ def main(argv=None):
         jobs = JobRunRepository(client)
         if args.persist:
             now = datetime.now(UTC)
-            run = jobs.start_run(job_name='crypto_radar:bybit:spot', run_key='crypto_radar:manual:'+str(uuid4()), trigger=JobTrigger.MANUAL, scheduled_for=now, correlation_id=uuid4(), started_at=now)
-        with ProviderHttpClient(base_url='https://api.bybit.com') as transport:
-            provider = BybitProvider(transport)
+            run = jobs.start_run(job_name=f'crypto_radar:{args.provider}:spot', run_key='crypto_radar:manual:'+str(uuid4()), trigger=JobTrigger.MANUAL, scheduled_for=now, correlation_id=uuid4(), started_at=now)
+        with ProviderHttpClient(base_url='https://api.' + args.provider + '.com') as transport:
+            provider = (KrakenProvider if args.provider == 'kraken' else BybitProvider)(transport)
             instruments = []
             for symbol in symbols:
                 instruments.extend(provider.get_assets(AssetSearchRequest(query=symbol)))
-            catalog = CryptoCatalog.from_client(client).bootstrap(instruments, symbols=symbols, apply=args.apply)
+            catalog = CryptoCatalog.from_client(client, provider=args.provider).bootstrap(instruments, symbols=symbols, apply=args.apply)
             if args.bootstrap and not args.persist:
                 report = {**catalog, 'assets': [{'id':str(a.id), 'symbol':a.symbol} for a in catalog['assets']]}
             else:
                 if len(catalog['assets']) != len(symbols): raise ValueError('CATALOG_NOT_READY_RUN_BOOTSTRAP_APPLY')
-                report = CryptoRadarService(provider=provider, engine=CryptoAnalysisEngine(), store=CryptoStore(client)).scan(catalog['assets'], persist=args.persist)
+                report = CryptoRadarService(provider=provider, engine=CryptoAnalysisEngine(), store=CryptoStore(client, provider=args.provider)).scan(catalog['assets'], persist=args.persist)
                 if any(p['status'] != 'READY' for p in report['pairs']): code = 1
         if run:
             jobs.finish_run(run_id=run.id, terminal_status=JobRunStatus.FAILED if code else JobRunStatus.SUCCEEDED, finished_at=datetime.now(UTC), error_code='CRYPTO_REPORT_INCOMPLETE' if code else None)
@@ -61,7 +64,7 @@ def main(argv=None):
         audit_error = type(exc).__name__
         if isinstance(exc, ProviderHttpError) and type(exc.status_code) is int and 100 <= exc.status_code <= 599:
             report['http_status'] = exc.status_code
-            audit_error = f'BYBIT_HTTP_{exc.status_code}'
+            audit_error = f'{args.provider.upper()}_HTTP_{exc.status_code}'
         if run and jobs:
             try:
                 jobs.finish_run(run_id=run.id, terminal_status=JobRunStatus.FAILED, finished_at=datetime.now(UTC), error_code=audit_error)

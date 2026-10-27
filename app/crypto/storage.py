@@ -18,7 +18,9 @@ def database_numeric(value):
 
 
 class CryptoStore:
-    def __init__(self, client):
+    def __init__(self, client, *, provider="bybit"):
+        if provider not in ("bybit", "kraken"): raise ValueError("Fonte cripto não suportada")
+        self.provider = provider
         self.client = client
         self.quotes = MarketQuoteRepository(client)
         self.candles = MarketCandleRepository(client)
@@ -26,10 +28,12 @@ class CryptoStore:
         self.metrics = AnalysisMetricRepository(client)
 
     def save_quote(self, quote):
+        if quote.provider != self.provider or quote.currency_code != "USDT": raise ValueError("QUOTE_IDENTITY_MISMATCH")
         if database_numeric(quote.price) != quote.price: raise ValueError('QUOTE_SCALE_UNSUPPORTED')
         return self.quotes.create_from_quote(quote)
 
     def save_analysis(self, asset, interval, candles, analysis):
+        if any((c.asset_id, c.provider, c.provider_symbol, c.interval) != (asset.id, self.provider, asset.symbol, interval) for c in candles): raise ValueError('CANDLE_IDENTITY_MISMATCH')
         if not candles or analysis.algorithm_version != 'analysis-v2' or analysis.asset_id != asset.id:
             raise ValueError('ANALYSIS_IDENTITY_MISMATCH')
         normalized_metrics = tuple(replace(metric, value=database_numeric(metric.value)) for metric in analysis.metrics)
@@ -38,7 +42,7 @@ class CryptoStore:
                 value = getattr(candle, name)
                 if value is not None and database_numeric(value) != value: raise ValueError('CANDLE_SCALE_UNSUPPORTED')
         fields = 'observed_at,provider_symbol,open::text,high::text,low::text,close::text,volume::text,adjusted_close::text'
-        result = self.client.table('market_candles').select(fields).eq('asset_id', str(asset.id)).eq('provider', 'bybit').eq('interval', interval.value).gte('observed_at', candles[0].timestamp.isoformat()).lte('observed_at', candles[-1].timestamp.isoformat()).limit(1000).execute()
+        result = self.client.table('market_candles').select(fields).eq('asset_id', str(asset.id)).eq('provider', self.provider).eq('interval', interval.value).gte('observed_at', candles[0].timestamp.isoformat()).lte('observed_at', candles[-1].timestamp.isoformat()).limit(1000).execute()
         if not isinstance(result.data, list): raise ValueError('INVALID_CANDLE_RESPONSE')
         existing = {datetime.fromisoformat(row['observed_at'].replace('Z', '+00:00')): row for row in result.data}
         missing = []

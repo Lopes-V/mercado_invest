@@ -1,4 +1,4 @@
-name: Bybit crypto radar
+name: Kraken crypto radar
 on:
   schedule:
     - cron: '*/5 * * * *'
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: bybit-spot-crypto-radar
+  group: public-spot-crypto-radar
   cancel-in-progress: false
 jobs:
   collect-and-analyze:
@@ -16,6 +16,7 @@ jobs:
       APP_ENV: production
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      CRYPTO_PROVIDER: kraken
       CRYPTO_SYMBOLS: BTCUSDT,ETHUSDT,SOLUSDT
     steps:
       - uses: actions/checkout@v4
