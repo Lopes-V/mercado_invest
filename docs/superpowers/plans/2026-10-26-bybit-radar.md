@@ -57,10 +57,19 @@ Metrics: CLOSE, RETURN (ratio over period), MOMENTUM_PCT (100*RETURN), EMA20/EMA
 ### Task 5: Review and delivery
 - [x] Independent review adapter/engine/service/UI, fix important findings with regression tests.
 - [x] Run required full suites and inspect diff/secrets metadata.
-- [ ] Deploy current Atlas to existing Vercel project and validate HTTPS login/crypto.
-- [ ] Backend changes on a feature branch/draft PR if Git access permits. No automatic merge. Confirm whether recurring workflow is actually active separately.
-- [ ] Save reusable startup instructions and report blockers precisely.
+- [x] Deploy current Atlas to existing Vercel project and validate HTTPS login/crypto.
+- [x] Backend changes on a feature branch/draft PR if Git access permits. No automatic merge. Confirm whether recurring workflow is actually active separately.
+- [x] Save reusable startup instructions and report blockers precisely.
 
 ## Verification evidence (2026-10-27)
 
 Backend: `python -m pytest -q` → 541 passed, 21 opt-in integrations skipped. Atlas: lint, production build and typecheck passed; 13 unit and 14 Chromium browser tests passed. Independent provider/engine reviews passed. Integration findings on quote expiry and stock-query isolation were fixed with regressions; page-open expiry and initially future-dated records are covered. Exact crypto Supabase query returned HTTP 200 with zero rows. Public Bybit bootstrap returned HTTP 403 regional restriction, so live collection/persistence and recurrence are not validated.
+
+## Delivery
+
+- Backend feature branch pushed; draft PR: https://github.com/Lopes-V/mercado_invest/pull/3 . No merge performed.
+- Atlas feature branch pushed; draft PR: https://github.com/Lopes-V/atlas-web/pull/1 . Prior authorized frontend changes from this session were preserved and committed with the crypto section.
+- Vercel production deployment `dpl_tdLhVFZAzdJ46nqZzBWCiRhFMKyj` confirmed READY at https://atlas-web-azure-two.vercel.app/cripto .
+- Production HTTPS verification: unauthenticated crypto redirects to login; configured password signs in with a Secure session; authenticated crypto renders the real empty state without query errors; stock markets still render existing records. Configured secret values are absent from tracked frontend files and authenticated page HTML.
+- Reusable environment startup instructions saved to the configuration draft. Publishing the cloud environment snapshot remains a separate environment-settings action.
+- Live crypto collection/persistence and recurrence remain unverified: Bybit regional HTTP 403 and workflow not merged to default branch. No fabricated prices/catalog, automatic orders, migrations or automatic merge.
