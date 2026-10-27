@@ -1,34 +1,30 @@
-name: Bybit crypto radar
+name: Temporary Kraken public API test
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: bybit-spot-crypto-radar
-  cancel-in-progress: false
 jobs:
-  collect-and-analyze:
-    runs-on: ${{ vars.CRYPTO_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 10
-    env:
-      APP_ENV: production
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      CRYPTO_SYMBOLS: BTCUSDT,ETHUSDT,SOLUSDT
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      summary: ${{ steps.test.outputs.summary }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install --no-input -r requirements.lock.txt
-      - name: Validate catalog, collect closed candles and analyze
-        run: python -m app.crypto_radar --bootstrap --apply --persist --output "$RUNNER_TEMP/crypto-radar.json"
+      - name: Read public API only, without database credentials
+        id: test
+        run: python3 .github/scripts/kraken-public-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: crypto-radar-report
-          path: ${{ runner.temp }}/crypto-radar.json
-          if-no-files-found: ignore
-          retention-days: 7
+          name: kraken-public-api-test
+          path: ${{ runner.temp }}/kraken-public-api-test.json
+          retention-days: 3
+  report:
+    needs: probe
+    if: always()
+    name: ${{ needs.probe.outputs.summary || 'Kraken test did not finish' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo 'See the probe summary and artifact for public API results.'
