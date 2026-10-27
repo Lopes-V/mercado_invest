@@ -289,7 +289,7 @@ declare result jsonb;
 begin
     if auth.uid() is null then raise exception 'authentication required' using errcode='42501'; end if;
     select coalesce(jsonb_agg(jsonb_build_object('id',a.id,'symbol',a.symbol,'name',a.name,'currency_code','USDT','quote',
-        case when q.id is null or q.price::text in ('NaN','Infinity','-Infinity') then null else jsonb_build_object('price',q.price::text,'observed_at',q.observed_at,'quality',q.quality,'provider',q.provider,'currency_code',q.currency_code) end) order by a.symbol,a.id),'[]'::jsonb)
+        case when q.id is null or q.price::text in ('NaN','Infinity','-Infinity') or q.price<=0 or q.currency_code<>'USDT' then null else jsonb_build_object('price',q.price::text,'observed_at',q.observed_at,'quality',q.quality,'provider',q.provider,'currency_code',q.currency_code) end) order by a.symbol,a.id),'[]'::jsonb)
         into result from public.assets a join public.markets m on m.id=a.market_id
         join public.exchanges e on e.id=a.exchange_id and e.market_id=m.id join public.currencies c on c.id=a.currency_id
         left join lateral (select mq.* from public.market_quotes mq where mq.asset_id=a.id and mq.provider='kraken' order by mq.observed_at desc,mq.created_at desc,mq.id desc limit 1) q on true

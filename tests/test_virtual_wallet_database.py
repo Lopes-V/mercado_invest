@@ -289,6 +289,29 @@ def test_nan_quote_is_unavailable_to_state_and_market(owner):
     assert bitcoin['quote'] is None
 
 
+@pytest.mark.parametrize('price,currency', [('0', 'USDT'), ('120', 'USD')])
+def test_unusable_latest_quote_is_null_without_hiding_cash_history_or_records(owner, price, currency):
+    wallet = funded(owner)
+    apply(owner, wallet, trade(qty='1', price='100', fees='0'))
+    quote(price='110', age='1 minute')
+    quote(price=price, currency=currency)
+
+    data = state(owner, wallet)
+    assert data['valuation_complete'] is False
+    assert data['market_value'] is None and data['unrealized_pnl'] is None
+    money(data, cash='900', known_market_value='900')
+    assert len(data['operations']) == 2
+    market = json.loads(sql('select public.virtual_wallet_market()', owner))
+    assert next(asset for asset in market['assets'] if asset['id'] == BTC)['quote'] is None
+
+    # A declared historical price remains usable despite the unavailable current quote.
+    apply(owner, wallet, trade(kind='SELL', qty='0.5', price='120', fees='0', when=T2))
+    after = state(owner, wallet)
+    money(after, cash='960')
+    assert after['operations_total'] == 3
+    assert after['valuation_complete'] is False
+
+
 def test_rate_limit_is_per_owner_across_wallets_with_retries_free(owner):
     one = create(owner)
     two = create(owner)
