@@ -56,3 +56,5 @@ Nunca versionar `.env`, tokens ou secret keys. Em GitHub Actions, credenciais fi
 ## Radar cripto Kraken
 
 A fonte padrão do radar cripto é Kraken. Consulte [execução, qualidade e limitações](docs/18-kraken-radar.md). Bybit permanece disponível por seleção explícita, sem fallback automático.
+
+A carteira individual do Atlas e a comparação manual de trocas estão descritas em [uso da carteira](docs/22-actionable-wallet.md). Para configurar uma instalação nova, consulte [ativação](docs/21-virtual-wallet-activation.md); não repita CREATE de tabelas existentes.

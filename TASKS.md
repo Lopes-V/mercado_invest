@@ -16,8 +16,8 @@ EM ANDAMENTO
 
 ### M-2026-10-27 — Tornar a carteira útil (pedido explícito)
 
-- [ ] Simplificar navegação/formulários e ações por posição, preservando livro e registros existentes.
-- [ ] Lote2 aprovado: simulador de troca com taxas/cenários explícitos, concentração e radar baseado em análises reais.
+- [x] Simplificar navegação/formulários e ações por posição, preservando livro e registros existentes.
+- [x] Lote2 aprovado: simulador de troca com taxas/cenários explícitos, concentração e radar baseado em análises reais.
 - [ ] Testes/revisão/deploy, sem nova migração, senha, ordens ou dados fictícios.
 
 Desenho/plano: docs/superpowers/specs/2026-10-27-actionable-wallet-design.md e docs/superpowers/plans/2026-10-27-actionable-wallet.md.
@@ -27,7 +27,7 @@ Desenho/plano: docs/superpowers/specs/2026-10-27-actionable-wallet-design.md e d
 Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.
 - [x] Lote1 implementado e validado: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração. Frontend publicado; recursos SQL agora reconhecidos pela API (negação de privilégios esperada para papéis administrativos/públicos). Fluxo individual real ainda depende da conta do operador.
 - [ ] Validação pelo operador: conferir URLs Auth e validar sua primeira conta/carteira real; não repetir CREATE de tabelas já existentes.
-- [ ] Lote2: simulador, concentração e radar técnico com dados reais.
+- [x] Lote2 implementado na branch: simulador, concentração e radar técnico com dados reais; publicação pendente de rede.
 - [ ] Lote3: alertas internos, histórico de sinais e backtesting com limitações explícitas de dados/fontes.
 - [x] Testes locais de isolamento, precisão, concorrência/rollback, integração e deploy frontend;622 backend/21skip (34PG),19unit/31browser. Nenhuma ordem real ou merge automático.
 
