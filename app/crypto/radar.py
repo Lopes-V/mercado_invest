@@ -40,7 +40,9 @@ class CryptoRadarService:
                         start = datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, UTC) - timedelta(seconds=200*seconds)
                         rows = tuple(self.provider.get_history(HistoryRequest(asset.id, asset.symbol, interval, start, end)))
                         if not rows: raise ValueError('INSUFFICIENT_HISTORY')
-                        rows = tuple(sorted(rows, key=lambda row: row.timestamp))
+                        # A request crossing a candle boundary can return 201 rows.
+                        # Anchor the indicator seed to the latest 200 closed facts.
+                        rows = tuple(sorted(rows, key=lambda row: row.timestamp)[-200:])
                         if any((row.asset_id, row.provider_symbol, row.provider, row.interval) != (asset.id, asset.symbol, self.provider.name, interval) for row in rows):
                             raise ValueError('CANDLE_IDENTITY_MISMATCH')
                         now = self.clock()

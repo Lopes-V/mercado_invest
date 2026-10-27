@@ -88,3 +88,9 @@ def test_history_refuses_kraken_retention_truncation():
 def test_metadata_market_key_must_match_requested_pair():
     with pytest.raises(ProviderResponseError):
         make(metadata_key='ETHUSDT').get_assets(AssetSearchRequest(query='BTCUSDT'))
+
+
+def test_quote_rejects_even_a_one_second_future_trade():
+    trade=deepcopy(TRADE);trade[2]=str(int(NOW.timestamp())+1)
+    with pytest.raises(ProviderResponseError):
+        make({'Trades':{'error':[],'result':{'XBTUSDT':[trade]}}}).get_quote(QuoteRequest(ASSET,'BTCUSDT'))

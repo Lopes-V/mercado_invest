@@ -52,3 +52,7 @@ Veja `docs/01-architecture.md`.
 
 ## Segurança
 Nunca versionar `.env`, tokens ou secret keys. Em GitHub Actions, credenciais ficam em Repository Secrets e policies não secretas em Repository Variables.
+
+## Radar cripto Kraken
+
+A fonte padrão do radar cripto é Kraken. Consulte [execução, qualidade e limitações](docs/18-kraken-radar.md). Bybit permanece disponível por seleção explícita, sem fallback automático.

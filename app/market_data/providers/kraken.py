@@ -76,7 +76,7 @@ class KrakenProvider:
             timestamp = _EPOCH + timedelta(microseconds=int(seconds * 1_000_000))
         except (InvalidOperation, ValueError, OverflowError) as exc:
             raise ProviderResponseError('Timestamp Kraken inválido') from exc
-        if timestamp > received + timedelta(minutes=2):
+        if timestamp > received:
             raise ProviderResponseError('Timestamp Kraken futuro')
         return timestamp
 
