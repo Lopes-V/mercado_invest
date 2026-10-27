@@ -53,3 +53,9 @@ Recorrência só está ativa depois que o workflow estiver na branch padrão e u
 A Bybit retornou HTTP 403 com a mensagem de que a distribuição CloudFront bloqueia o país de origem desta máquina. Isso foi confirmado após o domínio ter sido liberado: é uma restrição do provedor, não falta de chave Bybit. O adapter/CLI preserva o erro. Não foram criados preços demonstrativos nem registros de mercado para substituir a resposta.
 
 O coletor deve ser executado em infraestrutura permitida pela Bybit e conforme as condições da conta/região do operador. Um runner GitHub padrão pode encontrar a mesma restrição; a primeira execução real deve confirmar acesso antes de declarar o radar operacional.
+
+## Diagnóstico da primeira execução remota
+
+Os PRs do backend e Atlas foram integrados pelo operador em 27/10/2026. A execução manual https://github.com/Lopes-V/mercado_invest/actions/runs/40494095198 alcançou o Supabase e registrou `FAILED / ProviderHttpError`, sem criar catálogo, preços ou análises. Esse código genérico não prova o status HTTP específico no runner GitHub.
+
+Falhas HTTP agora preservam somente o status numérico validado em `http_status` no relatório e `BYBIT_HTTP_<status>` em `job_runs.error_code`. Não são registrados corpo de resposta, URLs, headers, códigos textuais do provedor ou mensagens de exceptions. Erros sem status HTTP válido mantêm apenas a classe. A primeira execução remota bem-sucedida ainda precisa ser confirmada antes de declarar o radar operacional.

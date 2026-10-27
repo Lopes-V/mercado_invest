@@ -18,6 +18,7 @@ EM ANDAMENTO
 
 Escopo aprovado pelo usuário no chat: spec `docs/superpowers/specs/2026-10-26-bybit-short-term-radar-design.md`; plano `docs/superpowers/plans/2026-10-26-bybit-radar.md`.
 
+- [ ] Diagnosticar a primeira coleta após o merge, preservando código HTTP no relatório/auditoria sem expor credenciais.
 - [x] Adapter público Bybit spot/USDT e candles fechados de 15m/1h.
 - [x] Indicadores analysis-v2 independentes de analysis-v1 e das policies de ações.
 - [x] Catálogo idempotente, relatório e job dedicado a cada 5 minutos, sem migration ou ordens.

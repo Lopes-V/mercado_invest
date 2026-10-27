@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from app.crypto.catalog import CryptoCatalog, DEFAULT_SYMBOLS, validate_symbols
 from app.market_data.contracts import AssetSearchRequest
+from app.market_data.errors import ProviderHttpError
 from app.market_data.http import ProviderHttpClient
 from app.market_data.providers.bybit import BybitProvider
 
@@ -55,13 +56,17 @@ def main(argv=None):
         if run:
             jobs.finish_run(run_id=run.id, terminal_status=JobRunStatus.FAILED if code else JobRunStatus.SUCCEEDED, finished_at=datetime.now(UTC), error_code='CRYPTO_REPORT_INCOMPLETE' if code else None)
     except Exception as exc:
-        # CLI boundary reports only error class; SDK exceptions may embed secrets.
+        # Report only the error class and validated HTTP status; never SDK exception text.
+        report = {'status':'FAILED', 'error_code':type(exc).__name__}
+        audit_error = type(exc).__name__
+        if isinstance(exc, ProviderHttpError) and type(exc.status_code) is int and 100 <= exc.status_code <= 599:
+            report['http_status'] = exc.status_code
+            audit_error = f'BYBIT_HTTP_{exc.status_code}'
         if run and jobs:
             try:
-                jobs.finish_run(run_id=run.id, terminal_status=JobRunStatus.FAILED, finished_at=datetime.now(UTC), error_code=type(exc).__name__)
+                jobs.finish_run(run_id=run.id, terminal_status=JobRunStatus.FAILED, finished_at=datetime.now(UTC), error_code=audit_error)
             except Exception as finish_error:
                 print('Failed to record job status: '+type(finish_error).__name__, file=sys.stderr)
-        report = {'status':'FAILED', 'error_code':type(exc).__name__}
         code = 1
     serialized = json.dumps(report, ensure_ascii=False, indent=2)
     if args.output:
