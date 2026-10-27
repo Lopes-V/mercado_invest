@@ -28,9 +28,9 @@ Market JSON: {evaluated_at,assets:[{id,symbol,name,currency_code:'USDT',quote:nu
 
 ### Task1 Database ledger and valuation
 Files new supabase/migrations/20261027130000_virtual_wallet.sql, tests/virtual_wallet_db/*, tests/test_virtual_wallet_database.py, docs/20-virtual-wallet.md.
-- [ ] RED real PostgreSQL tests ownerA/B, anon/directwrites denied, depositsnotprofit, BUY/SELL fees/costbasis, SWAP all-or-nothing, duplicates/conflict, overspend/backdating/reversal,replay,walletrate budget, exactdecimals/overflow, stale/missing/futureprice partialvaluation, historypagination, parallelwithdrawals.
-- [ ] GREEN implement newtables/immutableentries,RLS,qualifiedSECURITYDEFINER functions, locks, secureRPCgrants, accounting and textJSON. No remote writes or migration application by implementer.
-- [ ] Verify Docker PostgreSQL16 without exposedports, existingdomain/market migrations plusnewmigration; run newDBtests and wholepytest. Commit ownedfiles and report evidence/interface/rulings.
+- [x] RED real PostgreSQL tests ownerA/B, anon/directwrites denied, depositsnotprofit, BUY/SELL fees/costbasis, SWAP all-or-nothing, duplicates/conflict, overspend/backdating/reversal,replay,walletrate budget, exactdecimals/overflow, stale/missing/futureprice partialvaluation, historypagination, parallelwithdrawals.
+- [x] GREEN implement newtables/immutableentries,RLS,qualifiedSECURITYDEFINER functions, locks, secureRPCgrants, accounting and textJSON. No remote writes or migration application by implementer.
+- [x] Verify Docker PostgreSQL16 without exposedports, existingdomain/market migrations plusnewmigration; run newDBtests and wholepytest. Commit ownedfiles and report evidence/interface/rulings. Commit1916a69;32PostgreSQL tests,620fullsuitepassed/21skipped; independentreviewPASS after entrytransport/NaN fixes.
 
 ### Task2 Individual Auth and wallet UI
 Files Atlas new src/lib/virtual-{auth,api,contracts}.ts, src/app/conta/**, src/app/virtual/**, src/components/virtual-wallet.tsx, additiveCSS, navlink, tests/auth/mock/e2e, README/envexample.
