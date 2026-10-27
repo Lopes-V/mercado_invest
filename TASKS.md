@@ -25,13 +25,13 @@ Desenho/plano: docs/superpowers/specs/2026-10-27-actionable-wallet-design.md e d
 ### M-2026-10-27 — Carteira virtual individual USDT (desenho aprovado)
 
 Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.
-- [x] Lote1 implementado e validado: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração. Frontend publicado; ativação SQL remota pendente.
-- [ ] Ativação pelo operador: aplicar migration no SQL Editor, conferir URLs Auth e validar primeira conta/carteira real.
+- [x] Lote1 implementado e validado: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração. Frontend publicado; recursos SQL agora reconhecidos pela API (negação de privilégios esperada para papéis administrativos/públicos). Fluxo individual real ainda depende da conta do operador.
+- [ ] Validação pelo operador: conferir URLs Auth e validar sua primeira conta/carteira real; não repetir CREATE de tabelas já existentes.
 - [ ] Lote2: simulador, concentração e radar técnico com dados reais.
 - [ ] Lote3: alertas internos, histórico de sinais e backtesting com limitações explícitas de dados/fontes.
 - [x] Testes locais de isolamento, precisão, concorrência/rollback, integração e deploy frontend;622 backend/21skip (34PG),19unit/31browser. Nenhuma ordem real ou merge automático.
 
-Ativação: docs/21-virtual-wallet-activation.md. REST remoto ainda sem RPCs virtuais; não declarar gravações operacionais antes de aplicar SQL.
+Ativação: docs/21-virtual-wallet-activation.md. API reconhece tabelas/RPC privadas; privilégio negado não indica ausência de schema. Não declarar gravações individuais verificadas sem JWT/fluxo real autorizado.
 
 ### M-2026-10-27 — Reduzir intervalo de atualização de moedas e empresas
 
@@ -47,6 +47,13 @@ Validação:588 testes backend/21 integrações desativadas;13 unitários/15 nav
 - [x] Preservar dados antigos, limite de 120 segundos, indicadores e pipeline de ações; sem merge automático.
 
 Validação: 582 testes backend, 13 unitários e 14 de navegador Atlas passaram. Coleta real repetida: BTC/ETH READY, SOL indisponível por cotação antiga. Atlas publicado e validado por HTTPS com dados reais. PRs backend #5 / Atlas #2; troca agendada para Kraken depende de merge pelo operador.
+
+### M-2026-10-27 — Nova tentativa pública Bybit
+
+- [x] Testar novamente endpoint público sem credenciais ou persistência.
+- [ ] Retestar preços/candles após aplicação da configuração de rede.
+
+Resultado atual: GET `https://api.bybit.com/v5/market/time` interrompido no túnel CONNECT com 403 pelo proxy do ambiente. A política ativa não contém destinos personalizados; o rascunho salvo já inclui `api.bybit.com` e `api.github.com`, mas não foi aplicado a esta instância. Esse resultado não permite concluir se a restrição regional da Bybit mudou. Preservar Kraken até haver dados Bybit reais validados.
 
 ### M-2026-10-26 — Radar cripto Bybit de curto prazo (aprovado)
 

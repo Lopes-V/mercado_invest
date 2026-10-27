@@ -6,7 +6,9 @@ Esta ativação é separada da coleta de preços e da senha compartilhada das te
 
 Frontend publicado em `https://atlas-web-azure-two.vercel.app`, deployment `dpl_FX3GV3Zuv6huYTMULegg4dKpum9Y` READY. `/conta` público, `/virtual` protegido por conta individual, renovação apenas por POST da mesma origem e telas legadas validadas por HTTPS. Uma sessão administrativa válida não autentica a carteira.
 
-A leitura do schema REST remoto confirmou ausência das RPCs `virtual_wallet_*`: **migração ainda não aplicada, gravações da carteira ainda não ativadas**. Não foram criadas contas reais nem realizadas operações financeiras remotas. As etapas abaixo são necessárias para completar a ativação; cadastrar o frontend na Vercel não executa SQL automaticamente.
+Após o operador executar SQL, sondagens diretas reconheceram `virtual_wallets`, `virtual_operations` e `virtual_wallet_market`: retornaram `42501` (privilégio negado) em vez de recurso ausente. A migration restringe esses recursos por papel e identidade. Esse resultado confirma reconhecimento pela API, mas não comprova um lançamento individual real. Nenhuma conta real nem operação financeira remota foi criada pelas ferramentas.
+
+**Não executar novamente CREATE quando aparecer `42P07: relation already exists`.** A ausência de funções no OpenAPI usando outra role não comprova ausência de schema; `OPTIONS 200` também não comprova existência. Validar a tela usando a conta individual e verificar uma operação declarada pelo próprio usuário.
 
 ## Pré-requisitos do projeto existente
 
@@ -16,11 +18,11 @@ A chave pública fornecida pelo operador foi validada contra o endpoint Auth e r
 
 ## Migração PostgreSQL
 
-Revisar e executar o arquivo completo `supabase/migrations/20261027130000_virtual_wallet.sql` no [SQL Editor do projeto Supabase](https://supabase.com/dashboard/project/gwkiihmmgjoypmdykrmw/sql/new): **New query → colar o arquivo completo → Run**. Também pode ser usada uma conexão administrativa PostgreSQL autorizada. A migração é nova, adiciona a persistência virtual e funções RLS/RPC; não atribui carteiras legadas a novos usuários, não insere saldos e não altera registros de produção existentes.
+Somente em ambiente sem esta migration: revisar e executar o arquivo completo `supabase/migrations/20261027130000_virtual_wallet.sql` no [SQL Editor do projeto Supabase](https://supabase.com/dashboard/project/gwkiihmmgjoypmdykrmw/sql/new): **New query → colar o arquivo completo → Run**. Também pode ser usada uma conexão administrativa PostgreSQL autorizada. A migração é nova, adiciona a persistência virtual e funções RLS/RPC; não atribui carteiras legadas a novos usuários, não insere saldos e não altera registros de produção existentes.
 
 A execução SQL administrativa exige um acesso diferente da chave REST usada pelo Atlas. No ambiente desta tarefa foram confirmados Auth/REST funcionais, mas nenhuma conexão SQL/Management API nem função administrativa SQL exposta. Isso não é resolvido trocando a chave pública por uma chave administrativa nas chamadas dos usuários. Não instalar funções genéricas `exec_sql` para contornar a ausência de conexão administrativa.
 
-Após aplicar, validar que as funções `virtual_wallet_create`, `virtual_wallet_apply`, `virtual_wallet_state`, `virtual_wallet_history` e `virtual_wallet_market` aparecem na API. Solicitar reload do schema PostgREST conforme a migração; aguardar a atualização do cache. Até a migração existir, a aplicação deve informar indisponibilidade, sem montar uma carteira fictícia.
+Após aplicar, validar os RPCs `virtual_wallet_create`, `virtual_wallet_apply`, `virtual_wallet_state`, `virtual_wallet_history` e `virtual_wallet_market` pela interface com JWT de uma conta individual. Solicitar reload do schema PostgREST conforme a migração e aguardar a atualização do cache quando necessário. Não conceder acesso administrativo às tabelas privadas para testar o frontend. Até a migração existir, a aplicação deve informar indisponibilidade, sem montar uma carteira fictícia.
 
 ## Auth e URLs de produção
 
