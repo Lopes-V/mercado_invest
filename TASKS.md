@@ -18,14 +18,14 @@ EM ANDAMENTO
 
 Escopo aprovado pelo usuário no chat: spec `docs/superpowers/specs/2026-10-26-bybit-short-term-radar-design.md`; plano `docs/superpowers/plans/2026-10-26-bybit-radar.md`.
 
-- [ ] Diagnosticar a primeira coleta após o merge, preservando código HTTP no relatório/auditoria sem expor credenciais.
+- [x] Diagnosticar a primeira coleta após o merge, preservando código HTTP no relatório/auditoria sem expor credenciais.
 - [x] Adapter público Bybit spot/USDT e candles fechados de 15m/1h.
 - [x] Indicadores analysis-v2 independentes de analysis-v1 e das policies de ações.
 - [x] Catálogo idempotente, relatório e job dedicado a cada 5 minutos, sem migration ou ordens.
 - [x] Seção Cripto no Atlas, testes e validação; recorrência só declarada após publicação e execução verificadas.
 
 
-Status operacional: implementação e testes locais concluídos. Coleta real bloqueada por restrição regional HTTP 403 da Bybit; recorrência pendente de publicação na branch padrão e execução real bem-sucedida. Deploy do Atlas é independente do coletor.
+Status operacional: PR #3 integrado pelo operador; workflow publicado em main. Primeira execução manual alcançou o Supabase e falhou; execução diagnóstica da branch confirmou BYBIT_HTTP_403 no runner GitHub. Não há preços/análises cripto persistidos nem coleta operacional bem-sucedida. Executar em infraestrutura permitida pela Bybit e validar uma coleta real. Diagnóstico seguro no PR #4; 546 testes passaram, 21 integrações opt-in ignoradas. Deploy do Atlas é independente do coletor.
 
 ### M-2026-08-26 — Revisão do pipeline Opportunity / Gemini / Telegram
 
