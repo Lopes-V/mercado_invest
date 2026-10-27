@@ -21,12 +21,12 @@ class Client:
     def __init__(self):self.rows={name:[] for name in ['market_candles','analyses','analysis_metrics']}
     def table(self,name):return Query(self,name)
 
-def setup():
-    client=Client();store=CryptoStore(client);asset=SimpleNamespace(id=uuid4())
+def setup(provider="bybit"):
+    client=Client();store=CryptoStore(client,provider=provider);asset=SimpleNamespace(id=uuid4(),symbol="BTCUSDT")
     at=datetime(2026,10,26,tzinfo=UTC)
-    candle=Candle(asset.id,'BTCUSDT',at,Decimal('100'),Decimal('101'),Decimal('99'),Decimal('100'),Decimal('5'),CandleInterval.FIFTEEN_MINUTES,'bybit',at,DataQuality.VALID)
+    candle=Candle(asset.id,'BTCUSDT',at,Decimal('100'),Decimal('101'),Decimal('99'),Decimal('100'),Decimal('5'),CandleInterval.FIFTEEN_MINUTES,provider,at,DataQuality.VALID)
     def save_candles(candles):
-        for c in candles:client.rows['market_candles'].append({'asset_id':str(c.asset_id),'provider':'bybit','interval':'15m','observed_at':c.timestamp.isoformat(),'provider_symbol':c.provider_symbol,**{name:str(getattr(c,name)) if getattr(c,name) is not None else None for name in ['open','high','low','close','volume','adjusted_close']}})
+        for c in candles:client.rows['market_candles'].append({'asset_id':str(c.asset_id),'provider':c.provider,'interval':'15m','observed_at':c.timestamp.isoformat(),'provider_symbol':c.provider_symbol,**{name:str(getattr(c,name)) if getattr(c,name) is not None else None for name in ['open','high','low','close','volume','adjusted_close']}})
     def save_analysis(**kw):
         record={'id':str(uuid4()),**{k:v.isoformat() if isinstance(v,datetime) else str(v) for k,v in kw.items()}}
         client.rows['analyses'].append(record);return SimpleNamespace(id=record['id'])
@@ -75,3 +75,20 @@ def test_database_numeric_accepts_exact_schema_boundary_without_context_rounding
     from app.crypto.storage import database_numeric
     value=Decimal('99999999999999999999.999999999999999999')
     assert database_numeric(value)==value
+
+
+def test_kraken_candles_are_read_by_provider_and_remain_idempotent():
+    store,c,a,candle,result=setup('kraken')
+    first=store.save_analysis(a,candle.interval,(candle,),result)
+    second=store.save_analysis(a,candle.interval,(candle,),result)
+    assert str(first)==str(second)
+    assert len(c.rows['market_candles'])==1
+    assert c.rows['market_candles'][0]['provider']=='kraken'
+
+
+def test_store_rejects_cross_provider_candles_before_inserting():
+    from dataclasses import replace
+    store,c,a,candle,result=setup('kraken')
+    with pytest.raises(ValueError,match='IDENTITY'):
+        store.save_analysis(a,candle.interval,(replace(candle,provider='bybit'),),result)
+    assert not any(c.rows.values())

@@ -128,3 +128,69 @@ def test_report_rechecks_quote_after_optional_snapshot_request():
     report=CryptoRadarService(provider=SlowBook(),engine=Engine(),clock=lambda:time[0]).scan([asset()])
     assert report['pairs'][0]['status']=='UNAVAILABLE'
     assert 'STALE_OR_INVALID_QUOTE' in report['pairs'][0]['reasons']
+
+
+def test_kraken_catalog_has_independent_assets_and_mappings():
+    old,repos=catalog()
+    old.bootstrap(instruments(),apply=True)
+    service=CryptoCatalog(**repos,provider='kraken')
+    items=[ProviderAsset('kraken',s,s,'CRYPTO','USDT','KRAKEN','CRYPTO') for s in SYMBOLS]
+    report=service.bootstrap(items,apply=True)
+    assert len(repos['assets'].rows)==6
+    assert all(r.exchange_id==repos['exchanges'].rows[1].id for r in report['assets'])
+    assert {r.provider for r in repos['mappings'].rows}=={'bybit','kraken'}
+    before=sum(r.writes for r in repos.values())
+    service.bootstrap(items,apply=True)
+    assert sum(r.writes for r in repos.values())==before
+
+
+def test_radar_kraken_identity_is_accepted_but_bybit_quote_is_rejected():
+    from dataclasses import replace
+    class Kraken(Provider):
+        name='kraken'
+        def get_quote(self,request):return replace(super().get_quote(request),provider='kraken')
+        def get_history(self,request):return tuple(replace(r,provider='kraken') for r in super().get_history(request))
+    report=CryptoRadarService(provider=Kraken(),engine=Engine(),clock=lambda:NOW).scan([asset()])
+    assert report['provider']=='kraken' and report['pairs'][0]['status']=='READY'
+    p=Kraken();p.get_quote=Provider().get_quote
+    report=CryptoRadarService(provider=p,engine=Engine(),clock=lambda:NOW).scan([asset()])
+    assert report['pairs'][0]['status']=='UNAVAILABLE'
+    assert 'QUOTE_IDENTITY_MISMATCH' in report['pairs'][0]['reasons']
+
+
+def test_kraken_boundary_crossing_uses_same_200_candle_window_on_repeat():
+    import httpx
+    from app.analysis.crypto import CryptoAnalysisEngine
+    from app.market_data.http import ProviderHttpClient
+    from app.market_data.providers.kraken import KrakenProvider
+    time=[NOW.replace(minute=14,second=59)]
+    crossed=[False]
+    def respond(request):
+        endpoint=request.url.path.split('/')[-1]
+        if endpoint=='AssetPairs':
+            result={'XBTUSDT':{'altname':'XBTUSDT','wsname':'XBT/USDT','base':'XXBT','quote':'USDT','status':'online'}}
+        elif endpoint=='Trades':
+            result={'XBTUSDT':[['100','1',str(int(time[0].timestamp())-1),'b','l','',1]],'last':'cursor'}
+        else:
+            seconds=int(request.url.params['interval'])*60
+            if seconds==900 and not crossed[0]:
+                time[0]+=timedelta(seconds=2);crossed[0]=True
+            start=int(request.url.params['since'])
+            end=int(time[0].timestamp())//seconds*seconds
+            rows=[]
+            for at in range(start,end+1,seconds):
+                value=100+(at//seconds)%17
+                rows.append([at,str(value),str(value+3),str(value-2),str(value+1),str(value),'10',1])
+            result={'XBTUSDT':rows,'last':end}
+        return httpx.Response(200,json={'error':[],'result':result})
+    transport=ProviderHttpClient(base_url='https://api.kraken.com',transport=httpx.MockTransport(respond))
+    provider=KrakenProvider(transport,clock=lambda:time[0])
+    store=Store();record=asset()
+    service=CryptoRadarService(provider=provider,engine=CryptoAnalysisEngine(),store=store,clock=lambda:time[0])
+    for _ in range(2):
+        report=service.scan([record],persist=True)
+        assert report['pairs'][0]['status']=='READY'
+    analyses=[entry for entry in store.analyses if entry[1]==CandleInterval.FIFTEEN_MINUTES]
+    assert [len(entry[2]) for entry in analyses]==[200,200]
+    assert analyses[0][2][-1].timestamp==analyses[1][2][-1].timestamp
+    assert analyses[0][3].metrics==analyses[1][3].metrics

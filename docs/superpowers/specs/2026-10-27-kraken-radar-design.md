@@ -1,0 +1,11 @@
+# Kraken radar: approved source change
+
+User requested implementing Kraken after the successful public GitHub probe (run 40496190400). This is an additive provider and a change of the active crypto source, not an order integration. Preserve the previous approved radar scope, formulas, financial quality gates and stock jobs.
+
+Use public Kraken Spot API for BTCUSDT (API XBTUSDT), ETHUSDT and SOLUSDT. Validate online USDT instrument metadata, exact market identity, API errors, Decimal values and timestamps. Quotes use a genuine trade price and its timestamp. Only closed continuous 15m/1h candles enter analysis; Kraken history is limited to the latest 720 rows and older ranges must fail explicitly. No invented candles, prices or fees. The observed old SOL trade must remain unavailable at quote age >120 seconds.
+
+Approaches considered: Bybit requires another permitted executor; Kraken already responded from the existing GitHub runner; Coinbase would require currency/pair changes. User chose implementing Kraken. Keep Bybit available explicitly but change the dedicated workflow default/source to Kraken. No silent provider fallback or mixing. Separate KRAKEN exchange/assets/mappings prevent analyses from sharing the same asset ID with Bybit. Reuse the existing numeric tables without migrations; preserve immutable facts/idempotence.
+
+CLI selects --provider bybit|kraken / CRYPTO_PROVIDER; default kraken. Audit and safe errors identify the selected provider. Catalog and store receive an explicit provider, default bybit for existing callers. Radar derives identity from provider.name. Historical Kraken close values can change with its rolling history window; analysis-v2 is unchanged and existing analysis results remain immutable. Do not relax freshness or overwrite existing metrics.
+
+Atlas reads only KRAKEN assets/kraken quotes and labels the source explicitly. All authentication, server-only Supabase access, privacy and expiry behavior stay intact. Deploy to the existing Vercel project. Validate a manual feature-branch GitHub collection with approved Supabase secrets, persisted facts and Atlas. Deliver feature PRs without automatic merge; scheduled default-branch source changes require operator merge. A failed/partial pair remains explicit.
