@@ -2,7 +2,7 @@
 
 ## Pedido e direção
 
-O usuário pediu melhorar o backend de coleta/análise, explicou que pretende avaliar compras de cripto para operações rápidas de poucos dias e escolheu a Bybit. O produto deve transformar dados reais em um radar legível no Atlas. Esta é uma proposta de escopo, aguardando aprovação antes da implementação.
+O usuário pediu melhorar o backend de coleta/análise, explicou que pretende avaliar compras de cripto para operações rápidas de poucos dias e escolheu a Bybit. O produto deve transformar dados reais em um radar legível no Atlas. Escopo aprovado pelo usuário antes da implementação.
 
 Decisões propostas pelo implementador: começar pelo mercado **spot em USDT**, com BTCUSDT, ETHUSDT e SOLUSDT como lista inicial configurável; observar candles de 15 minutos e de 1 hora. A escolha de spot não presume que o usuário queira contratos ou alavancagem. Compra e venda permanecem decisões do operador; esta entrega não inclui integração de ordens.
 
@@ -86,7 +86,7 @@ Preservar DESIGN.md, login, ocultação de valores, fluxo de ações e demais te
 
 ## Bloqueios observados
 
-A chamada a `api.bybit.com` foi recusada no CONNECT pelo proxy deste ambiente (403); não há evidência ainda de rejeição pela própria Bybit. Os domínios oficiais da API e documentação foram adicionados ao rascunho de rede. A documentação foi consultada pelo repositório oficial público `bybit-exchange/docs` em raw.githubusercontent.com. A coleta pública não exige chave privada da conta Bybit.
+Inicialmente o proxy recusava o CONNECT. Após liberar o domínio, a Bybit respondeu HTTP 403 com bloqueio do país de origem pela distribuição CloudFront. A coleta real permanece bloqueada por restrição regional do provedor, não por falta de chave. Nenhum catálogo ou fato de mercado foi criado para substituir essa resposta. A documentação foi consultada pelo repositório oficial público `bybit-exchange/docs` em raw.githubusercontent.com. A coleta pública não exige chave privada da conta Bybit; executar apenas em infraestrutura permitida pelo provedor.
 
 ## Decisões deixadas ao implementador
 

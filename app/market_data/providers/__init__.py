@@ -3,3 +3,7 @@ from app.market_data.providers.twelve_data import TwelveDataProvider
 
 
 __all__ = ["BrapiProvider", "TwelveDataProvider"]
+
+from app.market_data.providers.bybit import BybitProvider
+
+__all__.append("BybitProvider")

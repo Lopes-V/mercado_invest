@@ -14,6 +14,18 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-10-26 — Radar cripto Bybit de curto prazo (aprovado)
+
+Escopo aprovado pelo usuário no chat: spec `docs/superpowers/specs/2026-10-26-bybit-short-term-radar-design.md`; plano `docs/superpowers/plans/2026-10-26-bybit-radar.md`.
+
+- [x] Adapter público Bybit spot/USDT e candles fechados de 15m/1h.
+- [x] Indicadores analysis-v2 independentes de analysis-v1 e das policies de ações.
+- [x] Catálogo idempotente, relatório e job dedicado a cada 5 minutos, sem migration ou ordens.
+- [x] Seção Cripto no Atlas, testes e validação; recorrência só declarada após publicação e execução verificadas.
+
+
+Status operacional: implementação e testes locais concluídos. Coleta real bloqueada por restrição regional HTTP 403 da Bybit; recorrência pendente de publicação na branch padrão e execução real bem-sucedida. Deploy do Atlas é independente do coletor.
+
 ### M-2026-08-26 — Revisão do pipeline Opportunity / Gemini / Telegram
 
 #### Escopo autorizado
