@@ -17,10 +17,13 @@ EM ANDAMENTO
 ### M-2026-10-27 — Carteira virtual individual USDT (desenho aprovado)
 
 Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.
-- [ ] Lote1: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração.
+- [x] Lote1 implementado e validado: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração. Frontend publicado; ativação SQL remota pendente.
+- [ ] Ativação pelo operador: aplicar migration no SQL Editor, conferir URLs Auth e validar primeira conta/carteira real.
 - [ ] Lote2: simulador, concentração e radar técnico com dados reais.
 - [ ] Lote3: alertas internos, histórico de sinais e backtesting com limitações explícitas de dados/fontes.
-- [ ] Testes de isolamento, precisão, concorrência/rollback, integração e deploy; nenhuma ordem real ou merge automático.
+- [x] Testes locais de isolamento, precisão, concorrência/rollback, integração e deploy frontend;622 backend/21skip (34PG),19unit/31browser. Nenhuma ordem real ou merge automático.
+
+Ativação: docs/21-virtual-wallet-activation.md. REST remoto ainda sem RPCs virtuais; não declarar gravações operacionais antes de aplicar SQL.
 
 ### M-2026-10-27 — Reduzir intervalo de atualização de moedas e empresas
 

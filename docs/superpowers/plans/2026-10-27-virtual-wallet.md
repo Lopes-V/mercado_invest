@@ -30,21 +30,24 @@ Market JSON: {evaluated_at,assets:[{id,symbol,name,currency_code:'USDT',quote:nu
 Files new supabase/migrations/20261027130000_virtual_wallet.sql, tests/virtual_wallet_db/*, tests/test_virtual_wallet_database.py, docs/20-virtual-wallet.md.
 - [x] RED real PostgreSQL tests ownerA/B, anon/directwrites denied, depositsnotprofit, BUY/SELL fees/costbasis, SWAP all-or-nothing, duplicates/conflict, overspend/backdating/reversal,replay,walletrate budget, exactdecimals/overflow, stale/missing/futureprice partialvaluation, historypagination, parallelwithdrawals.
 - [x] GREEN implement newtables/immutableentries,RLS,qualifiedSECURITYDEFINER functions, locks, secureRPCgrants, accounting and textJSON. No remote writes or migration application by implementer.
-- [x] Verify Docker PostgreSQL16 without exposedports, existingdomain/market migrations plusnewmigration; run newDBtests and wholepytest. Commit ownedfiles and report evidence/interface/rulings. Commit1916a69;32PostgreSQL tests,620fullsuitepassed/21skipped; independentreviewPASS after entrytransport/NaN fixes.
+- [x] Verify Docker PostgreSQL16 without exposedports, existingdomain/market migrations plusnewmigration; run newDBtests and wholepytest. Commit ownedfiles and report evidence/interface/rulings. Commits1916a69/ee68960;34PostgreSQL tests,622fullsuitepassed/21skipped; independentreviewPASS after entrytransport/NaN fixes.
 
 ### Task2 Individual Auth and wallet UI
 Files Atlas new src/lib/virtual-{auth,api,contracts}.ts, src/app/conta/**, src/app/virtual/**, src/components/virtual-wallet.tsx, additiveCSS, navlink, tests/auth/mock/e2e, README/envexample.
-- [ ] RED tests valid/expired/userA/Bsessions, cookie flags, authentication not shared-admin, RPC usespublishablekey+userJWT only, safeerrors/idempotency and no servicekey inbrowser; browser signup/login/empty/create/deposit/buy/sell/swap/history/validation/stalevaluation/logout/mobile.
-- [ ] GREEN Auth REST server-only (noSDKneeded): SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY; signin/signup/logout, verifiedGET/auth/v1/user; HttpOnly Secure SameSiteLax separatecookies access/refresh, refresh onserveraction and a safe same-origin renewalPOST route (GETnevermutates). Validate anyreturnURL tolocal/virtual. Keep adminhelpers separate. Emailconfirmationhoneststate, no fakeauto-login.
-- [ ] UI /virtual with own /conta identity, forms callSQLRPCexactcontract; no duplicated monetaryaccounting. Provide explicit recordedswapprices/fees; absentcurrentquote isunavailable, no prototypevalues. Manualhistorypaging, privacy, currentpositiongain and cashflowsseparate. Forms keep stableUUIDidempotencykey throughretry, newkeyonsuccess. Handle schema-not-applied with meaningful setupstatus, nofakewallet.
-- [ ] Verify lint/unit/build/typecheck/fullChromium; preserve existing15browsertests/13unit. Commit ownedfiles and report.
+- [x] RED tests valid/expired/userA/Bsessions, cookie flags, authentication not shared-admin, RPC usespublishablekey+userJWT only, safeerrors/idempotency and no servicekey inbrowser; browser signup/login/empty/create/deposit/buy/sell/swap/history/validation/stalevaluation/logout/mobile.
+- [x] GREEN Auth REST server-only (noSDKneeded): SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY; signin/signup/logout, verifiedGET/auth/v1/user; HttpOnly Secure SameSiteLax separatecookies access/refresh, refresh onserveraction and a safe same-origin renewalPOST route (GETnevermutates). Validate anyreturnURL tolocal/virtual. Keep adminhelpers separate. Emailconfirmationhoneststate, no fakeauto-login.
+- [x] UI /virtual with own /conta identity, forms callSQLRPCexactcontract; no duplicated monetaryaccounting. Provide explicit recordedswapprices/fees; absentcurrentquote isunavailable, no prototypevalues. Manualhistorypaging, privacy, currentpositiongain and cashflowsseparate. Forms keep stableUUIDidempotencykey throughretry, newkeyonsuccess. Handle schema-not-applied with meaningful setupstatus, nofakewallet.
+- [x] Verify lint/unit/build/typecheck/fullChromium; preserve existing15browsertests/13unit. Commit ownedfiles and report.
 
 ### Task3 Integration/review/deployment
 Root owns secureexistingpublickeylocal/Vercelenv configuration, repositoryPRs, approvedmigrationaccessdiagnosis, schemaapplication onlyaftertests/review, read-onlylivevalidation and docsdelivery.
-- [ ] Independent scoped security/accounting reviews and wholechange review; fix Important/Critical with regressions.
-- [ ] Attempt authorized SQL management access only through existing credentials/tools. If absent, deliver complete testedSQLforoperatorSQLeditor and finish all unaffectedcode/config/deployment; don't invent adminSQLaccessfromRESTkey.
-- [ ] Deploy existingAtlasproject; verify legacyHTTPS and /conta public + /virtualprotected; no manufacturing realuseraccounts or sending emailvia tools. Real user signup starts onlythroughuseraction.
-- [ ] Document requiredSupabaseAuthSiteURL/redirectallowlist, migrationapplication/status and strict activationgap. Newwritingnotliveuntilschema exists. FeaturePRs,noautomaticmerge; save startinstructions.
+- [x] Independent scoped security/accounting reviews and wholechange review; fix Important/Critical with regressions.
+- [x] Attempt authorized SQL management access only through existing credentials/tools. If absent, deliver complete testedSQLforoperatorSQLeditor and finish all unaffectedcode/config/deployment; don't invent adminSQLaccessfromRESTkey.
+- [x] Deploy existingAtlasproject; verify legacyHTTPS and /conta public + /virtualprotected; no manufacturing realuseraccounts or sending emailvia tools. Real user signup starts onlythroughuseraction.
+- [x] Document requiredSupabaseAuthSiteURL/redirectallowlist, migrationapplication/status and strict activationgap. Newwritingnotliveuntilschema exists. FeaturePRs,noautomaticmerge; save startinstructions.
 
 ## Later approved lots (not claimed in delivery1)
 Simulador/concentração/radar técnico (lot2), then internalalerts/signalhistory/backtesting/data-sourceevaluation (lot3). Preserve requirements and create their plans after corewallet is usable; don't call them delivered withlot1. New inputscore/news/capitalization stays unavailable until verified sources are configured.
+
+## Delivery status
+FinalindependentreviewPASS afteronefixwave; root622backend/21skip incl34PG,19unit/31browser,lint/build/typesPASS. Productiondpl_FX3GV3Zuv6huYTMULegg4dKpum9Y READY; HTTPSaccount/guards/renewal/legacyvalidated. No remoteDDLaccess; RESTschema hasnovirtualRPCs. OperatorSQLEditor/AuthURLactivationstillrequired, notclaimedlivewrites. See docs/21-virtual-wallet-activation.md.
