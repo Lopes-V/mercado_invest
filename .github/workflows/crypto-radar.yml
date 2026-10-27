@@ -12,6 +12,8 @@ jobs:
   collect-and-analyze:
     runs-on: ${{ vars.CRYPTO_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
+    outputs:
+      report: ${{ steps.summary.outputs.report }}
     env:
       APP_ENV: production
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -26,6 +28,24 @@ jobs:
       - run: pip install --no-input -r requirements.lock.txt
       - name: Validate catalog, collect closed candles and analyze
         run: python -m app.crypto_radar --bootstrap --apply --persist --output "$RUNNER_TEMP/crypto-radar.json"
+      - name: Summarize pair availability
+        if: always()
+        id: summary
+        shell: bash
+        run: |
+          python - <<'PYREPORT'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'crypto-radar.json'
+          report = json.loads(path.read_text()) if path.exists() else {}
+          pairs = report.get('pairs', [])
+          parts = [p['symbol'] + '=' + p['status'] + '(' + ','.join(p.get('reasons', [])) + ')' for p in pairs]
+          summary = 'Kraken: ' + '; '.join(parts) if pairs else 'Crypto report: ' + report.get('error_code', 'UNAVAILABLE')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('report=' + summary + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write(summary + '\n')
+          PYREPORT
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -33,3 +53,11 @@ jobs:
           path: ${{ runner.temp }}/crypto-radar.json
           if-no-files-found: ignore
           retention-days: 7
+  report:
+    needs: collect-and-analyze
+    if: always()
+    name: ${{ needs.collect-and-analyze.outputs.report || 'Crypto report unavailable' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo 'Pair availability is recorded in the collection report artifact.'
