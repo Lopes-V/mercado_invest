@@ -7,3 +7,7 @@ __all__ = ["BrapiProvider", "TwelveDataProvider"]
 from app.market_data.providers.bybit import BybitProvider
 
 __all__.append("BybitProvider")
+
+from app.market_data.providers.kraken import KrakenProvider
+
+__all__.append("KrakenProvider")

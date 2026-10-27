@@ -14,6 +14,12 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-10-27 — Implementar Kraken após teste público aprovado
+
+- [ ] Adapter Kraken e seleção explícita da fonte no radar, catálogo e persistência.
+- [ ] Workflow Kraken, Atlas com fonte identificada, testes e validação real.
+- [ ] Preservar dados antigos, limite de 120 segundos, indicadores e pipeline de ações; sem merge automático.
+
 ### M-2026-10-26 — Radar cripto Bybit de curto prazo (aprovado)
 
 Escopo aprovado pelo usuário no chat: spec `docs/superpowers/specs/2026-10-26-bybit-short-term-radar-design.md`; plano `docs/superpowers/plans/2026-10-26-bybit-radar.md`.
