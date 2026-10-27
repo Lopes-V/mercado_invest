@@ -14,6 +14,14 @@ EM ANDAMENTO
 
 ## Manutenção autorizada em andamento
 
+### M-2026-10-27 — Carteira virtual individual USDT (desenho aprovado)
+
+Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.
+- [ ] Lote1: Auth individual, novas tabelas/RLS/RPC atômica, movimentos manuais e histórico/contabilidade/valoração.
+- [ ] Lote2: simulador, concentração e radar técnico com dados reais.
+- [ ] Lote3: alertas internos, histórico de sinais e backtesting com limitações explícitas de dados/fontes.
+- [ ] Testes de isolamento, precisão, concorrência/rollback, integração e deploy; nenhuma ordem real ou merge automático.
+
 ### M-2026-10-27 — Reduzir intervalo de atualização de moedas e empresas
 
 - [x] Painel automático30s; cripto60s durante job, ações5min em coleta isolada.

@@ -1,4 +1,4 @@
-# Carteira virtual e radar de realocação — proposta para aprovação
+# Carteira virtual e radar de realocação — desenho aprovado
 
 ## Pedido e decisões confirmadas
 
@@ -87,3 +87,7 @@ Confirmar esta proposta de carteira individual USDT, persistência nova e Auth/R
 ## Revisão do desenho
 
 Builder check independente: PASS, sem decisões materiais pendentes do usuário além da aprovação desta proposta. Foram explicitados replay de estornos, precisão Decimal e separação entre sessões/auxiliares administrativos e contas individuais. Nenhum código da carteira ou migration foi aplicado.
+
+## Aprovação
+
+Usuário respondeu sim ao desenho no chat em27/10/2026; USDT confirmado. Prosseguir com implementação sem repetir a aprovação. Execução de DDL depende de acesso real ao banco; credencial REST não implica acesso SQL.
