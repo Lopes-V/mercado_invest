@@ -37,6 +37,7 @@ Consumes Task1tools + WalletResearch through optional `research` prop in Virtual
 - [x] Verify lint, npmtest, build, types, allChromium adapted+new. Screenshots desktop/mobile, commit/report.
 
 ### Task4 Review/deploy (root)
-- [ ] Scopedtools+UI/integrationreview; fixesfinancial/privacy/rate boundaries beforeprod.
-- [ ] Verifyallchecks; deploysameVercelproject preserving privateenv; publicconta/walletguard, legacyviews/secretabsence, no realuser/wallet writes for test.
-- [ ] PushfeaturePRs no merge; documentactualusefulchanges and remaininglimits; update environmentstartinstructions exactheads/status.
+- [x] Scopedtools+UI/integrationreview; fixesfinancial/privacy/rate boundaries beforeprod.
+- [x] Verifyallchecks locally:46unit/53Chromium, lint/build/types; independentfinalreviewPASS.
+- [ ] DeploysameVercelproject and HTTPSsmoke: blockedbycurrentnetwork, no production/Auth/financialwritesattempted.
+- [ ] Publishfeaturebranches/draftPRs no merge and saveenvironmentheads; PRAPIblocked, nativeGitavailable. Documentationofactualfeaturesandlimits complete.

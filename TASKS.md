@@ -22,6 +22,8 @@ EM ANDAMENTO
 
 Desenho/plano: docs/superpowers/specs/2026-10-27-actionable-wallet-design.md e docs/superpowers/plans/2026-10-27-actionable-wallet.md.
 
+Código verificado na branch `feat/actionable-crypto-wallet`:46 unitários e53 testes completos de navegador Atlas, lint/build/tipos e revisão independente final aprovados. Não há código Python/SQL novo nesta evolução. Publicação da nova interface e abertura de PRs pendentes: `api.vercel.com` e `api.github.com` bloqueados no CONNECT pelo proxy atual; `api.bybit.com` também bloqueado. Git nativo funciona. O rascunho de rede contém os destinos, mas a política ativa ainda não os aplica.
+
 ### M-2026-10-27 — Carteira virtual individual USDT (desenho aprovado)
 
 Usuário aprovou o desenho docs/superpowers/specs/2026-10-27-virtual-wallet-design.md.

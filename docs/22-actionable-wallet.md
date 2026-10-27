@@ -29,3 +29,9 @@ Fechar a ação e abri-la novamente preserva o rascunho e a chave da tentativa e
 ## Bybit
 
 O backend mantém o adapter público Bybit e a seleção explícita `--provider bybit`. A tentativa mais recente no ambiente atual foi bloqueada pelo proxy no CONNECT, antes de qualquer resposta Bybit. O domínio já consta no rascunho de rede, ainda sem aplicação à instância. Esse teste não confirma nem elimina a restrição regional vista anteriormente. A fonte da carteira continua Kraken; não são misturados preços ou históricos de corretoras diferentes.
+
+## Validação desta evolução
+
+Atlas:46 testes unitários e53 de navegador aprovados, lint/build/tipos aprovados, revisão independente final aprovada após correções de rascunhos, rejeição transacional e relógio de cotação. Não houve mudança no livro SQL, contas reais de teste ou lançamentos financeiros remotos. Código na branch `feat/actionable-crypto-wallet`; publicação desta nova interface ainda depende de acesso à Vercel.
+
+A tela usa um timestamp do servidor capturado após as leituras, tempo monotônico e duração de requisição quando disponível para avaliar a validade. Não é possível prometer um limite exato de entrega se o relógio do dispositivo estiver atrasado e o navegador não fornecer uma medição utilizável de transporte.
